@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Substack Reader Intelligence</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9}button{cursor:pointer;font-family:inherit}input,select{font-family:inherit}</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.3/babel.min.js"></script>
+<script type="text/babel">
+const {useState,useEffect}=React;
+const PROXY="https://api.rss2json.com/v1/api.json?rss_url=";
+const SRCS=[
+  {id:1,url:"https://oneusefulthing.substack.com/feed",name:"One Useful Thing"},
+  {id:2,url:"https://opinionai.substack.com/feed",name:"Opinion AI"},
+  {id:3,url:"https://jennyouyang.substack.com/feed",name:"Jenny Ouyang"},
+  {id:4,url:"https://gencay.substack.com/feed",name:"Gencay I."},
+  {id:5,url:"https://tudosisia.substack.com/feed",name:"Tu Dosisía"},
+];
+const CATS=["IA y tecnología","Negocios","Liderazgo","Productividad","Marketing","Finanzas","Cultura / sociedad","Ensayo personal","Otro"];
+const KW={"IA y tecnología":["ai","llm","gpt","machine learning","openai","claude","gemini","neural","automation","agent","inteligencia artificial","datos","data","tech","software","deepseek","prompt"],"Negocios":["business","startup","revenue","market","company","entrepreneur","saas","growth","investor","product","negocio","empresa","mercado","estrategia","b2b","founder"],"Liderazgo":["leadership","leader","ceo","management","team","executive","culture","decision","talent","liderazgo","equipo","gestión"],"Productividad":["productivity","habit","routine","focus","workflow","efficiency","deep work","system","productividad","hábito","rutina"],"Marketing":["marketing","brand","content","seo","campaign","audience","conversion","copy","viral","newsletter","funnel","marca"],"Finanzas":["finance","investment","money","economy","stock","wealth","budget","crypto","bitcoin","finanza","inversión","dinero","economía"],"Cultura / sociedad":["culture","society","politics","philosophy","education","ethics","psychology","cultura","sociedad","política","historia"],"Ensayo personal":["essay","personal","story","reflection","experience","life","journey","i learned","ensayo","reflexión","vida"]};
+const NOW=new Date(),CM=NOW.getMonth(),CY=NOW.getFullYear(),PM=CM===0?11:CM-1,PY=CM===0?CY-1:CY;
+function classify(t,b){const s=(t+" "+b).toLowerCase();let best="Otro",top=0;for(const[c,ws]of Object.entries(KW)){const n=ws.filter(w=>s.includes(w)).length;if(n>top){top=n;best=c;}}return best;}
+function getRel(d,c){const days=(Date.now()-new Date(d))/86400000;let s=days<3?4:days<7?3:days<20?2:days<45?1:0;if(["IA y tecnología","Negocios","Liderazgo"].includes(c))s++;return s>=4?"Alto":s>=2?"Medio":"Bajo";}
+function txt(h){return(h||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();}
+function fd(s){try{return new Date(s).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"});}catch(e){return"—";}}
+function ip(d,p){const dt=new Date(d);if(p==="cur")return dt.getMonth()===CM&&dt.getFullYear()===CY;if(p==="prev")return dt.getMonth()===PM&&dt.getFullYear()===PY;if(p==="60d")return(Date.now()-dt)/86400000<=60;return true;}
+const RC={Alto:{bg:"#dcfce7",c:"#15803d"},Medio:{bg:"#fef9c3",c:"#a16207"},Bajo:{bg:"#f1f5f9",c:"#64748b"}};
+const SC={Nuevo:{bg:"#dbeafe",c:"#1d4ed8"},Guardado:{bg:"#ede9fe",c:"#6d28d9"},Leído:{bg:"#f1f5f9",c:"#64748b"},Descartado:{bg:"#fee2e2",c:"#b91c1c"}};
+const pill=(label,st)=><span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:999,background:st.bg,color:st.c,whiteSpace:"nowrap"}}>{label}</span>;
+const card_s={background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:14};
+
+function PostCard({p,onSta,onNote,onCat}){
+  const[open,setOpen]=useState(false);
+  const[noteOpen,setNoteOpen]=useState(false);
+  const[catOpen,setCatOpen]=useState(false);
+  const[draft,setDraft]=useState(p.notes||"");
+  return <div style={{...card_s,opacity:p.status==="Descartado"?.4:1,display:"flex",flexDirection:"column",gap:8}}>
+    <div style={{display:"flex",flexWrap:"wrap",gap:4,alignItems:"center"}}>
+      {pill(p.rel,RC[p.rel])}{pill(p.status,SC[p.status])}
+      {p.partial&&pill("Parcial",{bg:"#fff7ed",c:"#c2410c"})}
+      {p.notes&&<span style={{fontSize:9,color:"#8b5cf6"}}>📝</span>}
+      <button onClick={()=>setCatOpen(o=>!o)} title="Cambiar categoría" style={{marginLeft:"auto",fontSize:9,background:"#f8fafc",color:"#64748b",padding:"2px 5px",borderRadius:4,border:"1px solid #e2e8f0",cursor:"pointer"}}>{p.cat} ▾</button>
+    </div>
+    {catOpen&&<div style={{background:"#f8fafc",borderRadius:6,padding:"6px 8px",border:"1px solid #e2e8f0"}}>
+      <div style={{fontSize:10,color:"#94a3b8",marginBottom:4,fontWeight:700}}>CAMBIAR CATEGORÍA</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+        {CATS.map(c=><button key={c} onClick={()=>{onCat(p.id,c);setCatOpen(false);}} style={{fontSize:10,padding:"2px 7px",borderRadius:99,border:p.cat===c?"1px solid #7c3aed":"1px solid #e2e8f0",background:p.cat===c?"#ede9fe":"transparent",color:p.cat===c?"#6d28d9":"#64748b"}}>{c}</button>)}
+      </div>
+    </div>}
+    <a href={p.link} target="_blank" rel="noopener noreferrer" style={{fontWeight:600,fontSize:13,color:"#0f172a",textDecoration:"none",lineHeight:1.4}}>{p.title}</a>
+    <div style={{fontSize:11,color:"#64748b",display:"flex",flexWrap:"wrap",gap:"2px 6px"}}>
+      <strong style={{color:"#334155"}}>{p.newsletter}</strong>{p.author&&<span>· {p.author}</span>}<span>· {p.date}</span>
+    </div>
+    <p style={{fontSize:11,color:"#475569",lineHeight:1.6,margin:0}}>{p.summary}</p>
+    {p.ideas.length>0&&<div>
+      <button onClick={()=>setOpen(o=>!o)} style={{background:"none",border:"none",padding:0,fontSize:11,color:"#3b82f6",fontWeight:600}}>{open?"▾ Ocultar ideas":"▸ Ideas clave"}</button>
+      {open&&<ul style={{margin:"6px 0 0",padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:3}}>
+        {p.ideas.map((x,i)=><li key={i} style={{display:"flex",gap:5,fontSize:11,color:"#475569"}}><span style={{color:"#93c5fd"}}>→</span>{x}</li>)}
+      </ul>}
+    </div>}
+    <div>
+      <button onClick={()=>setNoteOpen(o=>!o)} style={{background:"none",border:"none",padding:0,fontSize:11,color:"#8b5cf6",fontWeight:600}}>{noteOpen?"▾ Ocultar nota":"▸ "+(p.notes?"Editar nota":"Agregar nota")}</button>
+      {noteOpen&&<div style={{marginTop:6}}>
+        <textarea value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Escribe tu nota sobre este post…" style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:6,padding:"6px 8px",resize:"vertical",minHeight:56,color:"#334155",lineHeight:1.5,boxSizing:"border-box"}}/>
+        <div style={{display:"flex",gap:4,marginTop:4}}>
+          <button onClick={()=>{onNote(p.id,draft);setNoteOpen(false);}} style={{fontSize:10,padding:"3px 10px",borderRadius:5,border:"none",background:"#8b5cf6",color:"#fff",fontWeight:700}}>Guardar</button>
+          <button onClick={()=>{setDraft(p.notes||"");setNoteOpen(false);}} style={{fontSize:10,padding:"3px 10px",borderRadius:5,border:"1px solid #e2e8f0",background:"transparent",color:"#64748b"}}>Cancelar</button>
+          {p.notes&&<button onClick={()=>{onNote(p.id,"");setDraft("");setNoteOpen(false);}} style={{fontSize:10,padding:"3px 10px",borderRadius:5,border:"1px solid #fee2e2",background:"transparent",color:"#b91c1c"}}>Borrar</button>}
+        </div>
+      </div>}
+      {p.notes&&!noteOpen&&<div style={{marginTop:4,fontSize:11,color:"#6d28d9",background:"#faf5ff",borderRadius:6,padding:"5px 8px",lineHeight:1.5}}>{p.notes}</div>}
+    </div>
+    <div style={{display:"flex",gap:4,flexWrap:"wrap",paddingTop:8,borderTop:"1px solid #f1f5f9"}}>
+      {["Nuevo","Guardado","Leído","Descartado"].map(s=>{const a=p.status===s;return<button key={s} onClick={()=>onSta(p.id,s)} style={{fontSize:10,padding:"3px 8px",borderRadius:5,border:a?"1px solid #0f172a":"1px solid #e2e8f0",background:a?"#0f172a":"transparent",color:a?"#fff":"#64748b",fontWeight:a?700:400}}>{s}</button>;})}
+    </div>
+  </div>;
+}
+
+function Brief({posts}){
+  const ideas=posts.filter(p=>p.ideas.length>0).slice(0,5).map(p=>({t:p.ideas[0],s:`${p.newsletter} — ${p.title.slice(0,45)}…`}));
+  const cc={};posts.forEach(p=>{cc[p.cat]=(cc[p.cat]||0)+1;});
+  const trends=Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const mx=trends[0]?.[1]||1;
+  const pri=posts.filter(p=>p.rel==="Alto"&&p.status==="Nuevo").slice(0,3);
+  const sv=posts.filter(p=>p.status==="Guardado").length;
+  const acts=[pri[0]?`Leer: "${pri[0].title.slice(0,50)}…"`:"Explorar posts de alta relevancia",trends[0]?`Profundizar en: ${trends[0][0]}`:"Agregar más fuentes",sv?`Revisar ${sv} post${sv>1?"s":""} guardado${sv>1?"s":""}`:"Guardar posts clave"];
+  const TC=["#3b82f6","#8b5cf6","#0d9488"];
+  const nl=[...new Set(posts.map(p=>p.newsletter))].length;
+  const B=({title,ch})=><div style={card_s}><div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12}}>{title}</div>{ch}</div>;
+  if(!posts.length)return<div style={{...card_s,padding:"60px 20px",textAlign:"center",color:"#94a3b8",fontSize:13}}>Cargando posts del período…</div>;
+  return<div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{...card_s,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <div><div style={{fontSize:16,fontWeight:700,color:"#0f172a"}}>Marco de información · Mayo + Abril 2026</div><div style={{fontSize:11,color:"#64748b",marginTop:3}}>{posts.length} posts · {nl} newsletters · {posts.filter(p=>p.rel==="Alto").length} alta relevancia</div></div>
+      <span style={{background:"#ede9fe",color:"#6d28d9",fontSize:11,fontWeight:700,padding:"4px 12px",borderRadius:999}}>Auto-generado</span>
+    </div>
+    <B title="💡 5 Ideas más importantes" ch={ideas.length?<div style={{display:"flex",flexDirection:"column",gap:12}}>{ideas.map((x,i)=><div key={i} style={{display:"flex",gap:10}}><span style={{fontSize:13,fontWeight:700,color:"#93c5fd",flexShrink:0,width:18}}>{i+1}</span><div><div style={{fontSize:12,color:"#1e293b",lineHeight:1.55}}>{x.t}</div><div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>{x.s}</div></div></div>)}</div>:<div style={{fontSize:11,color:"#94a3b8",textAlign:"center",padding:"8px 0"}}>Muchos feeds Substack envían solo extractos. Haz clic en los títulos para leer completo.</div>}/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <B title="📈 3 Tendencias" ch={trends.length?trends.map(([c,n],i)=><div key={c} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{fontWeight:600,color:"#1e293b"}}>{i+1}. {c}</span><span style={{color:"#94a3b8"}}>{n}</span></div><div style={{height:5,background:"#f1f5f9",borderRadius:99}}><div style={{height:5,borderRadius:99,background:TC[i],width:`${Math.round(n/mx*100)}%`}}/></div></div>):<div style={{fontSize:11,color:"#94a3b8"}}>Sin datos.</div>}/>
+      <B title="🎯 3 Posts prioritarios" ch={pri.length?pri.map((p,i)=><div key={p.id} style={{display:"flex",gap:8,marginBottom:10}}><span style={{fontSize:11,fontWeight:700,color:"#34d399",flexShrink:0}}>{i+1}.</span><div><a href={p.link} target="_blank" rel="noopener noreferrer" style={{fontSize:11,fontWeight:600,color:"#0f172a",textDecoration:"none",display:"block",lineHeight:1.4}}>{p.title.slice(0,60)}…</a><div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>{p.newsletter} · {p.date}</div></div></div>):<div style={{fontSize:11,color:"#94a3b8"}}>Sin posts nuevos de alta relevancia.</div>}/>
+      <B title="⚡ Acciones recomendadas" ch={acts.map((a,i)=><div key={i} style={{display:"flex",gap:8,marginBottom:8}}><span style={{color:"#fb923c",fontWeight:700,flexShrink:0}}>→</span><span style={{fontSize:11,color:"#1e293b",lineHeight:1.5}}>{a}</span></div>)}/>
+      <B title="🔍 Temas emergentes" ch={<div><div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>{trends.map(([c])=><span key={c} style={{background:"#ede9fe",color:"#6d28d9",fontSize:11,fontWeight:700,padding:"5px 12px",borderRadius:999}}>{c}</span>)}</div>{trends[0]&&<div style={{fontSize:11,color:"#64748b",lineHeight:1.55}}><strong style={{color:"#334155"}}>{trends[0][0]}</strong> domina con {trends[0][1]} posts.{trends[1]?` ${trends[1][0]} en ascenso.`:""}</div>}</div>}/>
+    </div>
+  </div>;
+}
+
+function App(){
+  const[sources,setSources]=useState(SRCS);
+  const[posts,setPosts]=useState([]);
+  const[loading,setLoading]=useState(false);
+  const[msg,setMsg]=useState("");
+  const[done,setDone]=useState(0);
+  const[errs,setErrs]=useState({});
+  const[view,setView]=useState("brief");
+  const[period,setPeriod]=useState("60d");
+  const[nurl,setNurl]=useState("");
+  const[fil,setFil]=useState({cat:"all",src:"all",rel:"all",sta:"all"});
+  const[autoHide,setAutoHide]=useState(false);
+
+  async function fetchOne(s){
+    try{
+      const r=await fetch(PROXY+encodeURIComponent(s.url));
+      const d=await r.json();
+      if(d.status!=="ok")throw new Error(d.message);
+      const name=d.feed?.title||s.name;
+      setSources(p=>p.map(x=>x.id===s.id?{...x,name}:x));
+      return(d.items||[]).map(item=>{
+        const body=txt(item.content||item.description||"");
+        const partial=body.length<120;
+        const cat=classify(item.title||"",body);
+        const rv=getRel(item.pubDate||"",cat);
+        const summary=partial?"Contenido parcial — clic en el título para leer completo.":body.slice(0,280)+(body.length>280?"…":"");
+        const ideas=partial?[]:body.split(/[.!?]+/).map(x=>x.trim()).filter(x=>x.length>45).slice(0,3);
+        return{id:`${s.id}|${item.guid||item.link||Math.random()}`,srcId:s.id,newsletter:name,title:item.title||"Sin título",author:item.author||"",date:fd(item.pubDate),rawDate:item.pubDate||"",link:item.link||"#",cat,rel:rv,summary,ideas,status:"Nuevo",partial,notes:""};
+      });
+    }catch(e){setErrs(p=>({...p,[s.id]:true}));return[];}
+  }
+
+  async function loadAll(srcs){
+    setLoading(true);setErrs({});setDone(0);
+    const all=[];
+    for(const s of srcs){setMsg(s.name);all.push(...await fetchOne(s));setDone(n=>n+1);}
+    setPosts(prev=>{const m={};prev.forEach(p=>{m[p.id]={status:p.status,notes:p.notes||"",cat:p.cat};});return all.map(p=>({...p,...(m[p.id]?{status:m[p.id].status,notes:m[p.id].notes,cat:m[p.id].cat}:{})})).sort((a,b)=>new Date(b.rawDate)-new Date(a.rawDate));});
+    setLoading(false);setMsg("");
+  }
+
+  useEffect(()=>{loadAll(SRCS);},[]);
+
+  function addSrc(){if(!nurl.trim())return;let u=nurl.trim().split(/[?#]/)[0].replace(/\/$/,"");if(!u.startsWith("http"))u="https://"+u;const m=u.match(/substack\.com\/@([a-zA-Z0-9_-]+)/);const feed=m?`https://${m[1]}.substack.com/feed`:u.endsWith("/feed")?u:u+"/feed";const ns={id:Date.now(),url:feed,name:nurl.trim()};const nx=[...sources,ns];setSources(nx);setNurl("");loadAll(nx);}
+  function rmSrc(id){setSources(p=>p.filter(s=>s.id!==id));setPosts(p=>p.filter(x=>x.srcId!==id));}
+  function setSta(id,sta){setPosts(p=>p.map(x=>x.id===id?{...x,status:sta}:x));}
+  function setNote(id,note){setPosts(p=>p.map(x=>x.id===id?{...x,notes:note}:x));}
+  function setCat(id,cat){setPosts(p=>p.map(x=>x.id===id?{...x,cat}:x));}
+
+  const allNL=[...new Set(posts.map(p=>p.newsletter))];
+  const vis=posts.filter(p=>ip(p.rawDate,period)&&(fil.cat==="all"||p.cat===fil.cat)&&(fil.src==="all"||p.newsletter===fil.src)&&(fil.rel==="all"||p.rel===fil.rel)&&(fil.sta==="all"||p.status===fil.sta)&&(!autoHide||!["Leído","Descartado"].includes(p.status)));
+  const pct=sources.length?Math.round(done/sources.length*100):0;
+  const sb={background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:12};
+
+  return<div style={{minHeight:"100vh",background:"#f1f5f9"}}>
+    <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"12px 20px",position:"sticky",top:0,zIndex:20}}>
+      <div style={{maxWidth:1060,margin:"0 auto"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:8}}>
+          <div>
+            <div style={{fontSize:15,fontWeight:700,color:"#0f172a"}}>📰 Substack Reader Intelligence</div>
+            <div style={{fontSize:11,color:"#64748b",marginTop:1}}>{loading?`Cargando ${done}/${sources.length}: ${msg}…`:`${posts.length} posts · ${vis.length} visibles · ${sources.length} fuentes`}</div>
+            {loading&&<div style={{width:160,height:3,background:"#e2e8f0",borderRadius:99,marginTop:4}}><div style={{height:3,background:"#7c3aed",borderRadius:99,width:`${pct}%`,transition:"width .3s"}}/></div>}
+          </div>
+          <div style={{display:"flex",gap:4}}>
+            {[["brief","Brief"],["cards","Tarjetas"],["table","Tabla"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{padding:"6px 13px",fontSize:12,fontWeight:600,borderRadius:7,border:view===v?"1px solid #0f172a":"1px solid #e2e8f0",background:view===v?"#0f172a":"#fff",color:view===v?"#fff":"#64748b"}}>{l}</button>)}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
+          <span style={{fontSize:10,fontWeight:700,color:"#94a3b8",marginRight:2,letterSpacing:.5}}>PERÍODO</span>
+          {[["cur","Mayo 2026"],["prev","Abril 2026"],["60d","Mayo + Abril"],["all","Todo"]].map(([v,l])=><button key={v} onClick={()=>setPeriod(v)} style={{padding:"3px 10px",fontSize:11,fontWeight:600,borderRadius:99,border:period===v?"1px solid #7c3aed":"1px solid #e2e8f0",background:period===v?"#ede9fe":"transparent",color:period===v?"#6d28d9":"#64748b"}}>{l}</button>)}
+        </div>
+      </div>
+    </div>
+    <div style={{maxWidth:1060,margin:"0 auto",padding:"16px 20px",display:"flex",gap:14}}>
+      <div style={{width:192,flexShrink:0,display:"flex",flexDirection:"column",gap:10}}>
+        <button onClick={()=>loadAll(sources)} disabled={loading} style={{width:"100%",padding:"9px 0",fontSize:12,fontWeight:700,borderRadius:8,border:"none",background:loading?"#e2e8f0":"#0f172a",color:loading?"#94a3b8":"#fff"}}>{loading?"Cargando…":"↻ Actualizar feeds"}</button>
+        <div style={sb}>
+          <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:6}}>AGREGAR FUENTE</div>
+          <input value={nurl} onChange={e=>setNurl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSrc()} placeholder="newsletter.substack.com" style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:6,padding:"5px 7px",marginBottom:6,boxSizing:"border-box",color:"#0f172a"}}/>
+          <button onClick={addSrc} style={{width:"100%",fontSize:11,fontWeight:600,border:"1px solid #e2e8f0",borderRadius:6,padding:"5px 0",background:"transparent",color:"#334155"}}>+ Agregar</button>
+        </div>
+        <div style={sb}>
+          <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>FUENTES ({sources.length})</div>
+          {sources.map(s=><div key={s.id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+            <span style={{width:7,height:7,borderRadius:"50%",flexShrink:0,background:errs[s.id]?"#f87171":loading?"#fbbf24":"#34d399"}}/>
+            <span style={{fontSize:11,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#334155"}}>{s.name}</span>
+            <button onClick={()=>rmSrc(s.id)} style={{background:"none",border:"none",color:"#cbd5e1",fontSize:11,padding:0}}>✕</button>
+          </div>)}
+        </div>
+        <div style={sb}>
+          <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>FILTROS</div>
+          {[["Categoría","cat",["all",...CATS]],["Newsletter","src",["all",...allNL]],["Relevancia","rel",["all","Alto","Medio","Bajo"]],["Estado","sta",["all","Nuevo","Guardado","Leído","Descartado"]]].map(([lbl,key,opts])=><div key={key} style={{marginBottom:7}}>
+            <div style={{fontSize:10,color:"#94a3b8",marginBottom:2}}>{lbl}</div>
+            <select value={fil[key]} onChange={e=>setFil(f=>({...f,[key]:e.target.value}))} style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"4px 5px",background:"#fff",color:"#334155"}}>
+              {opts.map(o=><option key={o} value={o}>{o==="all"?"Todos":o}</option>)}
+            </select>
+          </div>)}
+          {Object.values(fil).some(v=>v!=="all")&&<button onClick={()=>setFil({cat:"all",src:"all",rel:"all",sta:"all"})} style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:5,padding:"3px 0",background:"transparent",color:"#94a3b8",marginTop:2}}>Limpiar filtros</button>}
+          <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid #f1f5f9"}}>
+            <button onClick={()=>setAutoHide(v=>!v)} style={{width:"100%",fontSize:11,fontWeight:600,padding:"5px 0",borderRadius:6,border:autoHide?"1px solid #0f172a":"1px solid #e2e8f0",background:autoHide?"#0f172a":"transparent",color:autoHide?"#fff":"#64748b",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+              <span>{autoHide?"👁":"👁"}</span>{autoHide?"Mostrando activos":"Ocultar leídos/desc."}
+            </button>
+          </div>
+        </div>
+        {vis.length>0&&<div style={sb}>
+          <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:6}}>ESTADO</div>
+          {["Nuevo","Guardado","Leído","Descartado"].map(s=><div key={s} style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:"#64748b"}}>{s}</span><span style={{fontWeight:700,color:"#0f172a"}}>{vis.filter(p=>p.status===s).length}</span></div>)}
+        </div>}
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        {loading&&posts.length===0?(
+          <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"70px 20px",textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:14}}>📡</div>
+            <div style={{fontSize:15,fontWeight:700,color:"#0f172a",marginBottom:6}}>Conectando a feeds RSS…</div>
+            <div style={{fontSize:12,color:"#64748b",marginBottom:14}}>{msg}</div>
+            <div style={{width:220,height:5,background:"#e2e8f0",borderRadius:99,margin:"0 auto"}}><div style={{height:5,background:"#7c3aed",borderRadius:99,width:`${pct}%`,transition:"width .4s"}}/></div>
+            <div style={{fontSize:11,color:"#94a3b8",marginTop:10}}>{done} de {sources.length} fuentes</div>
+          </div>
+        ):view==="brief"?<Brief posts={vis}/>
+        :view==="table"?(
+          vis.length===0?<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"40px",textAlign:"center",fontSize:12,color:"#94a3b8"}}>Sin posts con los filtros actuales.</div>:
+          <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr style={{background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>{["Newsletter","Título","Categoría","Fecha","Relevancia","Estado"].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:.5,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+            <tbody>{vis.map(p=><tr key={p.id} style={{borderBottom:"1px solid #f1f5f9",opacity:p.status==="Descartado"?.4:1}}>
+              <td style={{padding:"9px 12px",fontSize:11,color:"#64748b",maxWidth:110,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.newsletter}</td>
+              <td style={{padding:"9px 12px",maxWidth:230}}><a href={p.link} target="_blank" rel="noopener noreferrer" style={{fontWeight:600,fontSize:12,color:"#0f172a",textDecoration:"none",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{p.title}</a>{p.author&&<div style={{fontSize:10,color:"#94a3b8",marginTop:1}}>{p.author}</div>}</td>
+              <td style={{padding:"9px 12px"}}><span style={{fontSize:10,background:"#f1f5f9",color:"#475569",padding:"2px 6px",borderRadius:4,whiteSpace:"nowrap"}}>{p.cat}</span></td>
+              <td style={{padding:"9px 12px",fontSize:11,color:"#94a3b8",whiteSpace:"nowrap"}}>{p.date}</td>
+              <td style={{padding:"9px 12px"}}>{pill(p.rel,RC[p.rel])}</td>
+              <td style={{padding:"9px 12px"}}><select value={p.status} onChange={e=>setSta(p.id,e.target.value)} style={{fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"3px 5px",background:"#fff",color:"#334155"}}>{["Nuevo","Guardado","Leído","Descartado"].map(s=><option key={s}>{s}</option>)}</select></td>
+            </tr>)}</tbody>
+          </table></div></div>
+        ):(
+          vis.length===0?<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"40px",textAlign:"center",fontSize:12,color:"#94a3b8"}}>Sin posts con los filtros actuales.</div>:
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(255px,1fr))",gap:12}}>{vis.map(p=><PostCard key={p.id} p={p} onSta={setSta} onNote={setNote} onCat={setCat}/>)}</div>
+        )}
+      </div>
+    </div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
+</script>
+</body>
+</html>
