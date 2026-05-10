@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Substack Reader Intelligence</title>
+<title>Substack Reader</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9}button{cursor:pointer;font-family:inherit}input,select,textarea{font-family:inherit}</style>
 </head>
 <body>
@@ -22,41 +22,61 @@ function saveCustomCats(arr){try{localStorage.setItem(CATS_KEY,JSON.stringify(ar
 function useIsMobile(){const[m,setM]=useState(()=>window.innerWidth<680);useEffect(()=>{const h=()=>setM(window.innerWidth<680);window.addEventListener('resize',h);return()=>window.removeEventListener('resize',h);},[]);return m;}
 const PROXY="https://api.rss2json.com/v1/api.json?rss_url=";
 const SRCS=[{id:1,url:"https://oneusefulthing.substack.com/feed",name:"One Useful Thing"},{id:2,url:"https://opinionai.substack.com/feed",name:"Opinion AI"},{id:3,url:"https://jennyouyang.substack.com/feed",name:"Jenny Ouyang"},{id:4,url:"https://gencay.substack.com/feed",name:"Gencay I."},{id:5,url:"https://tudosisia.substack.com/feed",name:"Tu Dosisia"}];
-const BASE_CATS=["IA y tecnologia","Negocios","Liderazgo","Productividad","Marketing","Finanzas","Cultura y sociedad","Ensayo personal","Otro"];
-const KW={"IA y tecnologia":["ai","llm","gpt","machine learning","openai","claude","gemini","neural","automation","agent","inteligencia artificial","datos","data","tech","software","deepseek","prompt"],"Negocios":["business","startup","revenue","market","company","entrepreneur","saas","growth","investor","product","negocio","empresa","mercado","estrategia","b2b","founder"],"Liderazgo":["leadership","leader","ceo","management","team","executive","culture","decision","talent","liderazgo","equipo","gestion"],"Productividad":["productivity","habit","routine","focus","workflow","efficiency","deep work","system","productividad","habito","rutina"],"Marketing":["marketing","brand","content","seo","campaign","audience","conversion","copy","viral","newsletter","funnel","marca"],"Finanzas":["finance","investment","money","economy","stock","wealth","budget","crypto","bitcoin","finanza","inversion","dinero","economia"],"Cultura y sociedad":["culture","society","politics","philosophy","education","ethics","psychology","cultura","sociedad","politica","historia"],"Ensayo personal":["essay","personal","story","reflection","experience","life","journey","i learned","ensayo","reflexion","vida"]};
+const KW={"IA y tecnologia":["ai","llm","gpt","machine learning","openai","claude","gemini","neural","automation","agent","inteligencia artificial","datos","data","tech","software","deepseek","prompt"],"Negocios":["business","startup","revenue","market","company","entrepreneur","saas","growth","investor","product","negocio","empresa","mercado","estrategia","b2b","founder"],"Liderazgo":["leadership","leader","ceo","management","team","executive","culture","decision","talent","liderazgo","equipo","gestion"],"Productividad":["productivity","habit","routine","focus","workflow","efficiency","deep work","system","productividad","habito","rutina"],"Marketing":["marketing","brand","content","seo","campaign","audience","conversion","copy","viral","newsletter","funnel","marca"],"Finanzas":["finance","investment","money","economy","stock","wealth","budget","crypto","bitcoin","finanza","inversion","dinero","economia"]};
 const NOW=new Date(),CM=NOW.getMonth(),CY=NOW.getFullYear(),PM=CM===0?11:CM-1,PY=CM===0?CY-1:CY;
-function classify(t,b){const s=(t+" "+b).toLowerCase();let best="Otro",top=0;for(const[c,ws]of Object.entries(KW)){const n=ws.filter(w=>s.includes(w)).length;if(n>top){top=n;best=c;}}return best;}
-function getRel(d,c){const days=(Date.now()-new Date(d))/86400000;let s=days<3?4:days<7?3:days<20?2:days<45?1:0;if(["IA y tecnologia","Negocios","Liderazgo"].includes(c))s++;return s>=4?"Alto":s>=2?"Medio":"Bajo";}
+function classifyKW(t,b){const s=(t+" "+b).toLowerCase();let best="Sin categoria",top=0;for(const[c,ws]of Object.entries(KW)){const n=ws.filter(w=>s.includes(w)).length;if(n>top){top=n;best=c;}}return best;}
 function txt(h){return(h||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();}
-function fd(s){try{return new Date(s).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"});}catch(e){return"---";}};
+function fd(s){try{return new Date(s).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"});}catch(e){return"---";}}
 function ip(d,p){const dt=new Date(d);if(p==="cur")return dt.getMonth()===CM&&dt.getFullYear()===CY;if(p==="prev")return dt.getMonth()===PM&&dt.getFullYear()===PY;if(p==="60d")return(Date.now()-dt)/86400000<=60;return true;}
 const RC={Alto:{bg:"#dcfce7",c:"#15803d"},Medio:{bg:"#fef9c3",c:"#a16207"},Bajo:{bg:"#f1f5f9",c:"#64748b"}};
 const SC={Nuevo:{bg:"#dbeafe",c:"#1d4ed8"},Guardado:{bg:"#ede9fe",c:"#6d28d9"},Leido:{bg:"#f1f5f9",c:"#64748b"},Descartado:{bg:"#fee2e2",c:"#b91c1c"}};
 const pill=(label,st)=><span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:999,background:st.bg,color:st.c,whiteSpace:"nowrap"}}>{label}</span>;
 const card_s={background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:14};
 const STATES=["Nuevo","Guardado","Leido","Descartado"];
+const RELS=["Alto","Medio","Bajo"];
 
-function PostCard({p,onSta,onNote,onCat,allCats}){
+function PostCard({p,onSta,onNote,onCat,onRel,customCats,onAddCat}){
   const[open,setOpen]=useState(false);
   const[noteOpen,setNoteOpen]=useState(false);
   const[catOpen,setCatOpen]=useState(false);
+  const[resumeOpen,setResumeOpen]=useState(false);
   const[draft,setDraft]=useState(p.notes||"");
+  const[newCatDraft,setNewCatDraft]=useState("");
   const lines=p.notes?p.notes.split('\n').filter(l=>l.trim()):[];
   const noteHeadline=lines[0]||"";
   const noteBody=lines.slice(1).join(' ').trim();
+  const inMyCats=customCats.includes(p.cat);
+  const catLabel=inMyCats?p.cat:"Sin categoria";
+  const catStyle=inMyCats?{background:"#ede9fe",color:"#6d28d9"}:{background:"#f1f5f9",color:"#94a3b8"};
   return(
     <div style={{...card_s,opacity:p.status==="Descartado"?.4:1,display:"flex",flexDirection:"column",gap:8}}>
       <div style={{display:"flex",flexWrap:"wrap",gap:4,alignItems:"center"}}>
-        {pill(p.rel,RC[p.rel])}{pill(p.status,SC[p.status]||SC["Nuevo"])}
-        {p.partial&&pill("Parcial",{bg:"#fff7ed",c:"#c2410c"})}
-        {p.notes&&<span style={{fontSize:9,color:"#8b5cf6"}}>note</span>}
-        <button onClick={()=>setCatOpen(o=>!o)} style={{marginLeft:"auto",fontSize:9,background:"#f8fafc",color:"#64748b",padding:"2px 5px",borderRadius:4,border:"1px solid #e2e8f0"}}>{p.cat}</button>
+        <select value={p.rel} onChange={e=>onRel(p.id,e.target.value)}
+          style={{fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:999,border:"none",background:RC[p.rel]?.bg||"#f1f5f9",color:RC[p.rel]?.c||"#64748b",cursor:"pointer"}}>
+          {RELS.map(r=><option key={r} value={r}>{r}</option>)}
+        </select>
+        {pill(p.status,SC[p.status]||SC["Nuevo"])}
+        {p.notes&&<span style={{fontSize:9,color:"#8b5cf6"}}>nota</span>}
+        <button onClick={()=>setCatOpen(o=>!o)}
+          style={{marginLeft:"auto",fontSize:9,background:catStyle.background,color:catStyle.color,padding:"2px 6px",borderRadius:4,border:"1px solid #e2e8f0",fontWeight:600}}>
+          {catLabel}
+        </button>
       </div>
       {catOpen&&(
-        <div style={{background:"#f8fafc",borderRadius:6,padding:"6px 8px",border:"1px solid #e2e8f0"}}>
-          <div style={{fontSize:10,color:"#94a3b8",marginBottom:4,fontWeight:700}}>CAMBIAR CATEGORIA</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-            {allCats.map(c=><button key={c} onClick={()=>{onCat(p.id,c);setCatOpen(false);}} style={{fontSize:10,padding:"2px 7px",borderRadius:99,border:p.cat===c?"1px solid #7c3aed":"1px solid #e2e8f0",background:p.cat===c?"#ede9fe":"transparent",color:p.cat===c?"#6d28d9":"#64748b"}}>{c}</button>)}
+        <div style={{background:"#f8fafc",borderRadius:6,padding:"8px",border:"1px solid #e2e8f0"}}>
+          <div style={{fontSize:10,color:"#94a3b8",marginBottom:6,fontWeight:700}}>MIS CATEGORIAS</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
+            {customCats.length===0&&<span style={{fontSize:11,color:"#94a3b8"}}>Crea una categoria abajo</span>}
+            {customCats.map(c=><button key={c} onClick={()=>{onCat(p.id,c);setCatOpen(false);}}
+              style={{fontSize:10,padding:"3px 9px",borderRadius:99,border:p.cat===c?"1px solid #7c3aed":"1px solid #e2e8f0",background:p.cat===c?"#ede9fe":"transparent",color:p.cat===c?"#6d28d9":"#64748b"}}>{c}</button>)}
+          </div>
+          <div style={{display:"flex",gap:4}}>
+            <input value={newCatDraft} onChange={e=>setNewCatDraft(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"&&newCatDraft.trim()){onAddCat(newCatDraft.trim());onCat(p.id,newCatDraft.trim());setNewCatDraft("");setCatOpen(false);}}}
+              placeholder="Nueva categoria..."
+              style={{flex:1,fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"3px 6px",color:"#334155"}}/>
+            <button onClick={()=>{if(newCatDraft.trim()){onAddCat(newCatDraft.trim());onCat(p.id,newCatDraft.trim());setNewCatDraft("");setCatOpen(false);}}}
+              style={{fontSize:11,fontWeight:700,padding:"3px 8px",borderRadius:5,border:"none",background:"#7c3aed",color:"#fff"}}>+</button>
           </div>
         </div>
       )}
@@ -64,12 +84,25 @@ function PostCard({p,onSta,onNote,onCat,allCats}){
       <div style={{fontSize:11,color:"#64748b",display:"flex",flexWrap:"wrap",gap:"2px 6px"}}>
         <strong style={{color:"#334155"}}>{p.newsletter}</strong>{p.author&&<span>- {p.author}</span>}<span>- {p.date}</span>
       </div>
-      <p style={{fontSize:11,color:"#475569",lineHeight:1.6,margin:0}}>{p.summary}</p>
-      {p.ideas.length>0&&(
-        <div>
-          <button onClick={()=>setOpen(o=>!o)} style={{background:"none",border:"none",padding:0,fontSize:11,color:"#3b82f6",fontWeight:600}}>{open?"Ocultar ideas":"Ideas clave"}</button>
-          {open&&<ul style={{margin:"6px 0 0",padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:3}}>{p.ideas.map((x,i)=><li key={i} style={{display:"flex",gap:5,fontSize:11,color:"#475569"}}><span style={{color:"#93c5fd"}}>-</span>{x}</li>)}</ul>}
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <button onClick={()=>setResumeOpen(o=>!o)} style={{background:"none",border:"none",padding:0,fontSize:11,color:"#0d9488",fontWeight:600}}>{resumeOpen?"Ocultar resumen":"Ver resumen"}</button>
+        {p.ideas.length>0&&<button onClick={()=>setOpen(o=>!o)} style={{background:"none",border:"none",padding:0,fontSize:11,color:"#3b82f6",fontWeight:600}}>{open?"Ocultar ideas":"Ideas clave"}</button>}
+      </div>
+      {resumeOpen&&(
+        <div style={{background:"#f0fdf9",border:"1px solid #99f6e4",borderRadius:8,padding:"10px 12px"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#0f766e",marginBottom:6}}>Resumen del articulo</div>
+          <p style={{fontSize:11,color:"#134e4a",lineHeight:1.65,margin:"0 0 8px"}}>{p.summary}</p>
+          {p.ideas.length>0&&<div>
+            <div style={{fontSize:10,fontWeight:700,color:"#0f766e",marginBottom:4}}>Ideas principales</div>
+            {p.ideas.map((x,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:4}}><span style={{color:"#2dd4bf",fontWeight:700,flexShrink:0}}>-</span><span style={{fontSize:11,color:"#134e4a",lineHeight:1.5}}>{x}</span></div>)}
+          </div>}
+          <a href={p.link} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:8,fontSize:10,color:"#0d9488",fontWeight:700,textDecoration:"none"}}>Leer articulo completo en Substack</a>
         </div>
+      )}
+      {open&&!resumeOpen&&(
+        <ul style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:3}}>
+          {p.ideas.map((x,i)=><li key={i} style={{display:"flex",gap:5,fontSize:11,color:"#475569"}}><span style={{color:"#93c5fd"}}>-</span>{x}</li>)}
+        </ul>
       )}
       <div>
         <button onClick={()=>setNoteOpen(o=>!o)} style={{background:"none",border:"none",padding:0,fontSize:11,color:"#8b5cf6",fontWeight:600}}>
@@ -77,7 +110,8 @@ function PostCard({p,onSta,onNote,onCat,allCats}){
         </button>
         {noteOpen&&(
           <div style={{marginTop:6}}>
-            <textarea value={draft} onChange={e=>setDraft(e.target.value)} placeholder="1a linea = titulo. Siguientes = detalle." style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:6,padding:"6px 8px",resize:"vertical",minHeight:70,color:"#334155",lineHeight:1.5,boxSizing:"border-box"}}/>
+            <textarea value={draft} onChange={e=>setDraft(e.target.value)} placeholder="1a linea = titulo. Siguientes = detalle."
+              style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:6,padding:"6px 8px",resize:"vertical",minHeight:70,color:"#334155",lineHeight:1.5,boxSizing:"border-box"}}/>
             <div style={{display:"flex",gap:4,marginTop:4}}>
               <button onClick={()=>{onNote(p.id,draft);setNoteOpen(false);}} style={{fontSize:10,padding:"3px 10px",borderRadius:5,border:"none",background:"#8b5cf6",color:"#fff",fontWeight:700}}>Guardar</button>
               <button onClick={()=>{setDraft(p.notes||"");setNoteOpen(false);}} style={{fontSize:10,padding:"3px 10px",borderRadius:5,border:"1px solid #e2e8f0",background:"transparent",color:"#64748b"}}>Cancelar</button>
@@ -103,11 +137,11 @@ function PostCard({p,onSta,onNote,onCat,allCats}){
 function Brief({posts,isMobile}){
   const ideas=posts.filter(p=>p.ideas.length>0).slice(0,5).map(p=>({t:p.ideas[0],s:p.newsletter+" - "+p.title.slice(0,40)+"...",l:p.link}));
   const cc={};posts.forEach(p=>{cc[p.cat]=(cc[p.cat]||0)+1;});
-  const trends=Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const trends=Object.entries(cc).filter(([c])=>c!=="Sin categoria").sort((a,b)=>b[1]-a[1]).slice(0,3);
   const mx=trends[0]?.[1]||1;
   const pri=posts.filter(p=>p.rel==="Alto"&&p.status==="Nuevo").slice(0,3);
   const sv=posts.filter(p=>p.status==="Guardado").length;
-  const acts=[pri[0]?'Leer: "'+pri[0].title.slice(0,50)+'..."':"Explorar posts de alta relevancia",trends[0]?"Profundizar en: "+trends[0][0]:"Agregar mas fuentes",sv?"Revisar "+sv+" guardado"+(sv>1?"s":""):"Guardar posts clave"];
+  const acts=[pri[0]?'Leer: "'+pri[0].title.slice(0,50)+'..."':"Explorar posts de alta relevancia",trends[0]?"Profundizar en: "+trends[0][0]:"Crea tus categorias en el panel lateral",sv?"Revisar "+sv+" guardado"+(sv>1?"s":""):"Guarda posts que quieras revisar"];
   const TC=["#3b82f6","#8b5cf6","#0d9488"];
   const nl=new Set(posts.map(p=>p.newsletter)).size;
   const B=({title,ch})=><div style={card_s}><div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12}}>{title}</div>{ch}</div>;
@@ -134,22 +168,25 @@ function Brief({posts,isMobile}){
         :<div style={{fontSize:11,color:"#94a3b8",textAlign:"center",padding:"8px 0"}}>Feeds envian solo extractos. Haz clic en titulos para leer.</div>
       }/>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
-        <B title="3 Tendencias" ch={trends.length
+        <B title="Tendencias" ch={trends.length
           ?trends.map(([c,n],i)=><div key={c} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{fontWeight:600,color:"#1e293b"}}>{i+1}. {c}</span><span style={{color:"#94a3b8"}}>{n}</span></div><div style={{height:5,background:"#f1f5f9",borderRadius:99}}><div style={{height:5,borderRadius:99,background:TC[i],width:Math.round(n/mx*100)+"%"}}/></div></div>)
-          :<div style={{fontSize:11,color:"#94a3b8"}}>Sin datos.</div>
+          :<div style={{fontSize:11,color:"#94a3b8"}}>Asigna categorias a tus posts para ver tendencias.</div>
         }/>
         <B title="3 Posts prioritarios" ch={pri.length
           ?pri.map((p,i)=><div key={p.id} style={{display:"flex",gap:8,marginBottom:10}}><span style={{fontSize:11,fontWeight:700,color:"#34d399",flexShrink:0}}>{i+1}.</span><div><a href={p.link} target="_blank" rel="noopener noreferrer" style={{fontSize:11,fontWeight:600,color:"#0f172a",textDecoration:"none",display:"block",lineHeight:1.4}}>{p.title.slice(0,60)}{p.title.length>60?"...":""}</a><div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>{p.newsletter} - {p.date}</div></div></div>)
-          :<div style={{fontSize:11,color:"#94a3b8"}}>Sin posts nuevos de alta relevancia.</div>
+          :<div style={{fontSize:11,color:"#94a3b8"}}>Sin posts nuevos marcados como Alta relevancia.</div>
         }/>
         <B title="Acciones recomendadas" ch={acts.map((a,i)=><div key={i} style={{display:"flex",gap:8,marginBottom:8}}><span style={{color:"#fb923c",fontWeight:700,flexShrink:0}}>-</span><span style={{fontSize:11,color:"#1e293b",lineHeight:1.5}}>{a}</span></div>)}/>
-        <B title="Temas emergentes" ch={<div><div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>{trends.map(([c])=><span key={c} style={{background:"#ede9fe",color:"#6d28d9",fontSize:11,fontWeight:700,padding:"5px 12px",borderRadius:999}}>{c}</span>)}</div>{trends[0]&&<div style={{fontSize:11,color:"#64748b",lineHeight:1.55}}><strong style={{color:"#334155"}}>{trends[0][0]}</strong> domina con {trends[0][1]} posts.{trends[1]?" "+trends[1][0]+" en ascenso.":""}</div>}</div>}/>
+        <B title="Temas emergentes" ch={trends.length
+          ?<div><div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>{trends.map(([c])=><span key={c} style={{background:"#ede9fe",color:"#6d28d9",fontSize:11,fontWeight:700,padding:"5px 12px",borderRadius:999}}>{c}</span>)}</div><div style={{fontSize:11,color:"#64748b",lineHeight:1.55}}><strong style={{color:"#334155"}}>{trends[0][0]}</strong> domina con {trends[0][1]} posts.{trends[1]?" "+trends[1][0]+" en ascenso.":""}</div></div>
+          :<div style={{fontSize:11,color:"#94a3b8"}}>Crea categorias en "Mis Categorias" para ver temas emergentes.</div>
+        }/>
       </div>
     </div>
   );
 }
 
-function CatManager({customCats,onAdd,onDelete,onRename}){
+function CatManager({customCats,onAdd,onDelete,onRename,fil,setFil}){
   const[newCat,setNewCat]=useState("");
   const[editing,setEditing]=useState(null);
   const[editVal,setEditVal]=useState("");
@@ -160,12 +197,19 @@ function CatManager({customCats,onAdd,onDelete,onRename}){
         <div key={i} style={{display:"flex",alignItems:"center",gap:4,marginBottom:5}}>
           {editing===i
             ?<><input value={editVal} onChange={e=>setEditVal(e.target.value)} autoFocus style={{flex:1,fontSize:11,border:"1px solid #7c3aed",borderRadius:4,padding:"2px 5px",color:"#334155"}}/><button onClick={()=>{onRename(i,editVal);setEditing(null);}} style={{fontSize:10,padding:"2px 6px",borderRadius:4,border:"none",background:"#7c3aed",color:"#fff"}}>OK</button><button onClick={()=>setEditing(null)} style={{fontSize:10,padding:"2px 6px",borderRadius:4,border:"1px solid #e2e8f0",background:"transparent",color:"#94a3b8"}}>X</button></>
-            :<><span style={{flex:1,fontSize:11,color:"#334155",background:"#f8f5ff",padding:"3px 7px",borderRadius:4}}>{c}</span><button onClick={()=>{setEditing(i);setEditVal(c);}} style={{background:"none",border:"none",fontSize:11,color:"#94a3b8",padding:"0 2px"}}>e</button><button onClick={()=>onDelete(i)} style={{background:"none",border:"none",fontSize:11,color:"#fca5a5",padding:"0 2px"}}>x</button></>
+            :<>
+                <button onClick={()=>setFil(f=>({...f,cat:f.cat===c?"all":c}))}
+                  style={{flex:1,fontSize:11,color:"#334155",background:fil.cat===c?"#ede9fe":"#f8f5ff",padding:"4px 7px",borderRadius:4,border:fil.cat===c?"1px solid #7c3aed":"1px solid #e2e8f0",textAlign:"left",fontWeight:fil.cat===c?700:400}}>{c}</button>
+                <button onClick={()=>{setEditing(i);setEditVal(c);}} style={{background:"none",border:"none",fontSize:11,color:"#94a3b8",padding:"0 2px"}}>e</button>
+                <button onClick={()=>onDelete(i)} style={{background:"none",border:"none",fontSize:11,color:"#fca5a5",padding:"0 2px"}}>x</button>
+              </>
           }
         </div>
       ))}
+      {fil.cat!=="all"&&<button onClick={()=>setFil(f=>({...f,cat:"all"}))} style={{fontSize:10,color:"#94a3b8",background:"transparent",border:"1px solid #e2e8f0",borderRadius:4,padding:"2px 6px",marginBottom:6}}>Limpiar filtro</button>}
       <div style={{display:"flex",gap:4,marginTop:4}}>
-        <input value={newCat} onChange={e=>setNewCat(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newCat.trim()){onAdd(newCat.trim());setNewCat("");}}} placeholder="Nueva categoria..." style={{flex:1,fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"4px 6px",color:"#334155"}}/>
+        <input value={newCat} onChange={e=>setNewCat(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newCat.trim()){onAdd(newCat.trim());setNewCat("");}}} placeholder="Nueva categoria..."
+          style={{flex:1,fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"4px 6px",color:"#334155"}}/>
         <button onClick={()=>{if(newCat.trim()){onAdd(newCat.trim());setNewCat("");}}} style={{fontSize:11,fontWeight:700,padding:"4px 8px",borderRadius:5,border:"none",background:"#7c3aed",color:"#fff"}}>+</button>
       </div>
     </div>
@@ -183,12 +227,11 @@ function App(){
   const[view,setView]=useState("brief");
   const[period,setPeriod]=useState("60d");
   const[nurl,setNurl]=useState("");
-  const[fil,setFil]=useState({cat:"all",src:"all",rel:"all",sta:"Nuevo"});
+  const[fil,setFil]=useState({src:"all",rel:"all",sta:"Nuevo",cat:"all"});
   const[autoHide,setAutoHide]=useState(false);
   const[showDrawer,setShowDrawer]=useState(false);
   const[customCats,setCustomCats]=useState(()=>getCustomCats());
-  const allCats=[...BASE_CATS,...customCats];
-  function addCustomCat(name){if(allCats.includes(name))return;const n=[...customCats,name];setCustomCats(n);saveCustomCats(n);}
+  function addCustomCat(name){if(customCats.includes(name))return;const n=[...customCats,name];setCustomCats(n);saveCustomCats(n);}
   function delCustomCat(i){const n=customCats.filter((_,idx)=>idx!==i);setCustomCats(n);saveCustomCats(n);}
   function renameCustomCat(i,name){if(!name.trim())return;const n=customCats.map((c,idx)=>idx===i?name.trim():c);setCustomCats(n);saveCustomCats(n);}
   async function fetchOne(s){
@@ -199,10 +242,9 @@ function App(){
       setSources(p=>p.map(x=>x.id===s.id?{...x,name}:x));
       return(d.items||[]).map(item=>{
         const body=txt(item.content||item.description||"");const partial=body.length<120;
-        const cat=classify(item.title||"",body);const rv=getRel(item.pubDate||"",cat);
         const summary=partial?"Contenido parcial - clic en el titulo para leer completo.":body.slice(0,280)+(body.length>280?"...":"");
         const ideas=partial?[]:body.split(/[.!?]+/).map(x=>x.trim()).filter(x=>x.length>45).slice(0,3);
-        return{id:s.id+"|"+(item.guid||item.link||Math.random()),srcId:s.id,newsletter:name,title:item.title||"Sin titulo",author:item.author||"",date:fd(item.pubDate),rawDate:item.pubDate||"",link:item.link||"#",cat,rel:rv,summary,ideas,status:"Nuevo",partial,notes:""};
+        return{id:s.id+"|"+(item.guid||item.link||Math.random()),srcId:s.id,newsletter:name,title:item.title||"Sin titulo",author:item.author||"",date:fd(item.pubDate),rawDate:item.pubDate||"",link:item.link||"#",cat:"Sin categoria",rel:"Medio",summary,ideas,status:"Nuevo",partial,notes:""};
       });
     }catch(e){setErrs(p=>({...p,[s.id]:true}));return[];}
   }
@@ -210,8 +252,8 @@ function App(){
     setLoading(true);setErrs({});setDone(0);const all=[];
     for(const s of srcs){setMsg(s.name);all.push(...await fetchOne(s));setDone(n=>n+1);}
     setPosts(prev=>{
-      const anns=getAnns();const m={};prev.forEach(p=>{m[p.id]={status:p.status,notes:p.notes||"",cat:p.cat};});
-      return all.map(p=>{const ann=anns[p.id]||{};const pv=m[p.id]||{};return{...p,status:ann.status||pv.status||p.status,notes:ann.notes!==undefined?ann.notes:(pv.notes||""),cat:ann.cat||pv.cat||p.cat};}).sort((a,b)=>new Date(b.rawDate)-new Date(a.rawDate));
+      const anns=getAnns();const m={};prev.forEach(p=>{m[p.id]={status:p.status,notes:p.notes||"",cat:p.cat,rel:p.rel};});
+      return all.map(p=>{const ann=anns[p.id]||{};const pv=m[p.id]||{};return{...p,status:ann.status||pv.status||p.status,notes:ann.notes!==undefined?ann.notes:(pv.notes||""),cat:ann.cat||pv.cat||p.cat,rel:ann.rel||pv.rel||p.rel};}).sort((a,b)=>new Date(b.rawDate)-new Date(a.rawDate));
     });
     setLoading(false);setMsg("");
   }
@@ -221,11 +263,21 @@ function App(){
   function setSta(id,sta){saveAnn(id,{status:sta});setPosts(p=>p.map(x=>x.id===id?{...x,status:sta}:x));}
   function setNote(id,note){saveAnn(id,{notes:note});setPosts(p=>p.map(x=>x.id===id?{...x,notes:note}:x));}
   function setCat(id,cat){saveAnn(id,{cat});setPosts(p=>p.map(x=>x.id===id?{...x,cat}:x));}
+  function setRel(id,rel){saveAnn(id,{rel});setPosts(p=>p.map(x=>x.id===id?{...x,rel}:x));}
   const allNL=[...new Set(posts.map(p=>p.newsletter))];
   const vis=posts.filter(p=>ip(p.rawDate,period)&&(fil.cat==="all"||p.cat===fil.cat)&&(fil.src==="all"||p.newsletter===fil.src)&&(fil.rel==="all"||p.rel===fil.rel)&&(fil.sta==="all"||p.status===fil.sta)&&(!autoHide||!["Leido","Descartado"].includes(p.status)));
   const pct=sources.length?Math.round(done/sources.length*100):0;
   const sb={background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:12};
   const hasFilter=Object.values(fil).some(v=>v!=="all");
+  const StatusCount=({sta})=>{
+    const count=posts.filter(p=>p.status===sta&&ip(p.rawDate,period)).length;
+    return(
+      <div onClick={()=>setFil(f=>({...f,sta:f.sta===sta?"all":sta}))} style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3,cursor:"pointer",borderRadius:4,padding:"2px 4px",background:fil.sta===sta?"#f1f5f9":"transparent"}}>
+        <span style={{color:fil.sta===sta?"#0f172a":"#64748b",fontWeight:fil.sta===sta?600:400}}>{sta}</span>
+        <span style={{fontWeight:700,color:fil.sta===sta?"#0f172a":"#94a3b8"}}>{count}</span>
+      </div>
+    );
+  };
   const SideContent=()=>(
     <>
       <button onClick={()=>loadAll(sources)} disabled={loading} style={{width:"100%",padding:"9px 0",fontSize:12,fontWeight:700,borderRadius:8,border:"none",background:loading?"#e2e8f0":"#0f172a",color:loading?"#94a3b8":"#fff"}}>{loading?"Cargando...":"Actualizar feeds"}</button>
@@ -238,10 +290,12 @@ function App(){
         <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>FUENTES ({sources.length})</div>
         {sources.map(s=><div key={s.id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><span style={{width:7,height:7,borderRadius:"50%",flexShrink:0,background:errs[s.id]?"#f87171":loading?"#fbbf24":"#34d399"}}/><span style={{fontSize:11,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#334155"}}>{s.name}</span><button onClick={()=>rmSrc(s.id)} style={{background:"none",border:"none",color:"#cbd5e1",fontSize:11,padding:0}}>x</button></div>)}
       </div>
-      <div style={sb}><CatManager customCats={customCats} onAdd={addCustomCat} onDelete={delCustomCat} onRename={renameCustomCat}/></div>
+      <div style={sb}>
+        <CatManager customCats={customCats} onAdd={addCustomCat} onDelete={delCustomCat} onRename={renameCustomCat} fil={fil} setFil={setFil}/>
+      </div>
       <div style={sb}>
         <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>FILTROS</div>
-        {[["Categoria","cat",["all",...allCats]],["Newsletter","src",["all",...allNL]],["Relevancia","rel",["all","Alto","Medio","Bajo"]],["Estado","sta",["all","Nuevo","Guardado","Leido","Descartado"]]].map(([lbl,key,opts])=>(
+        {[["Newsletter","src",["all",...allNL]],["Relevancia","rel",["all","Alto","Medio","Bajo"]]].map(([lbl,key,opts])=>(
           <div key={key} style={{marginBottom:7}}>
             <div style={{fontSize:10,color:"#94a3b8",marginBottom:2}}>{lbl}</div>
             <select value={fil[key]} onChange={e=>setFil(f=>({...f,[key]:e.target.value}))} style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"4px 5px",background:"#fff",color:"#334155"}}>
@@ -249,86 +303,125 @@ function App(){
             </select>
           </div>
         ))}
-        {hasFilter&&<button onClick={()=>setFil({cat:"all",src:"all",rel:"all",sta:"Nuevo"})} style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:5,padding:"3px 0",background:"transparent",color:"#94a3b8",marginTop:2}}>Restaurar filtros</button>}
+        {hasFilter&&<button onClick={()=>setFil({src:"all",rel:"all",sta:"Nuevo",cat:"all"})} style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:5,padding:"3px 0",background:"transparent",color:"#94a3b8",marginTop:2}}>Restaurar filtros</button>}
         <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid #f1f5f9"}}>
           <button onClick={()=>setAutoHide(v=>!v)} style={{width:"100%",fontSize:11,fontWeight:600,padding:"5px 0",borderRadius:6,border:autoHide?"1px solid #0f172a":"1px solid #e2e8f0",background:autoHide?"#0f172a":"transparent",color:autoHide?"#fff":"#64748b",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
             {autoHide?"Mostrando activos":"Ocultar leidos/desc."}
           </button>
         </div>
       </div>
-      {vis.length>0&&<div style={sb}>
-        <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:6}}>ESTADO (periodo)</div>
-        {STATES.map(s=><div key={s} style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:"#64748b"}}>{s}</span><span style={{fontWeight:700,color:"#0f172a"}}>{posts.filter(p=>p.status===s&&ip(p.rawDate,period)).length}</span></div>)}
-      </div>}
+      <div style={sb}>
+        <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:6}}>ESTADO (click para filtrar)</div>
+        {STATES.map(s=><StatusCount key={s} sta={s}/>)}
+      </div>
     </>
   );
-  return(
-    <div style={{minHeight:"100vh",background:"#f1f5f9"}}>
-      <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:isMobile?"10px 14px":"12px 20px",position:"sticky",top:0,zIndex:20}}>
-        <div style={{maxWidth:1060,margin:"0 auto"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:8}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:isMobile?14:15,fontWeight:700,color:"#0f172a"}}>Substack Reader</div>
-              <div style={{fontSize:11,color:"#64748b",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{loading?"Cargando "+done+"/"+sources.length+"...":vis.length+" posts - "+sources.length+" fuentes"}</div>
-              {loading&&<div style={{width:120,height:3,background:"#e2e8f0",borderRadius:99,marginTop:4}}><div style={{height:3,background:"#7c3aed",borderRadius:99,width:pct+"%",transition:"width .3s"}}/></div>}
-            </div>
-            <div style={{display:"flex",gap:4,alignItems:"center"}}>
-              {isMobile&&<button onClick={()=>setShowDrawer(v=>!v)} style={{padding:"6px 10px",fontSize:12,fontWeight:700,borderRadius:7,border:showDrawer||hasFilter?"1px solid #7c3aed":"1px solid #e2e8f0",background:showDrawer?"#ede9fe":"#fff",color:showDrawer?"#6d28d9":"#64748b"}}>Filtros{hasFilter?" *":""}</button>}
-              {[["brief","Brief"],["cards","Cards"],["table","Tabla"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{padding:"6px 10px",fontSize:isMobile?11:12,fontWeight:600,borderRadius:7,border:view===v?"1px solid #0f172a":"1px solid #e2e8f0",background:view===v?"#0f172a":"#fff",color:view===v?"#fff":"#64748b"}}>{l}</button>)}
-            </div>
-          </div>
-          <div style={{display:"flex",gap:4,alignItems:"center",overflowX:"auto",paddingBottom:2,scrollbarWidth:"none"}}>
-            <span style={{fontSize:10,fontWeight:700,color:"#94a3b8",flexShrink:0}}>PERIODO</span>
-            {[["cur","Mayo"],["prev","Abril"],["60d","Ambos"],["all","Todo"]].map(([v,l])=><button key={v} onClick={()=>setPeriod(v)} style={{flexShrink:0,padding:"4px 11px",fontSize:11,fontWeight:600,borderRadius:99,border:period===v?"1px solid #7c3aed":"1px solid #e2e8f0",background:period===v?"#ede9fe":"transparent",color:period===v?"#6d28d9":"#64748b"}}>{l}</button>)}
-          </div>
+
+  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+
+  const filtered = posts.filter(p=>{
+    if(fil.src!=="all"&&p.src!==fil.src)return false;
+    if(fil.rel!=="all"&&p.rel!==fil.rel)return false;
+    if(fil.sta!=="all"&&p.sta!==fil.sta)return false;
+    if(fil.cat!=="all"&&p.cat!==fil.cat)return false;
+    if(autoHide&&(p.sta==="Leido"||p.sta==="Descartado"))return false;
+    return true;
+  });
+
+  const hasFilter = fil.src!=="all"||fil.rel!=="all"||fil.sta!=="Nuevo"||fil.cat!=="all";
+
+  return (
+    <div style={{minHeight:"100vh",background:"#f8fafc",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+      {/* HEADER */}
+      <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 20px",display:"flex",alignItems:"center",gap:12,height:50,position:"sticky",top:0,zIndex:100}}>
+        {isMobile&&<button onClick={()=>setDrawerOpen(v=>!v)} style={{background:"none",border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 8px",fontSize:18,lineHeight:1,cursor:"pointer",color:"#334155"}}>&#9776;</button>}
+        <span style={{fontWeight:800,fontSize:16,color:"#0f172a",letterSpacing:-.5}}>Substack<span style={{color:"#6366f1"}}>Intel</span></span>
+        <div style={{flex:1}}/>
+        {loading&&<span style={{fontSize:11,color:"#94a3b8",marginRight:8}}>Cargando...</span>}
+        <div style={{display:"flex",gap:4}}>
+          {["brief","cards","table"].map(v=>(
+            <button key={v} onClick={()=>setView(v)} style={{fontSize:11,fontWeight:600,padding:"4px 10px",borderRadius:6,border:"none",background:view===v?"#0f172a":"transparent",color:view===v?"#fff":"#64748b",cursor:"pointer",textTransform:"capitalize"}}>{v==="brief"?"Brief":v==="cards"?"Tarjetas":"Tabla"}</button>
+          ))}
         </div>
+        <button onClick={loadAll} style={{fontSize:11,fontWeight:600,padding:"4px 10px",borderRadius:6,border:"1px solid #e2e8f0",background:"transparent",color:"#334155",cursor:"pointer"}}>&#8635; Sync</button>
       </div>
-      {isMobile&&showDrawer&&<div onClick={()=>setShowDrawer(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.35)",zIndex:30}}/>}
-      {isMobile&&showDrawer&&(
-        <div style={{position:"fixed",top:0,right:0,bottom:0,width:"82vw",maxWidth:320,background:"#fff",zIndex:40,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10,boxShadow:"-4px 0 20px rgba(0,0,0,.15)"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-            <span style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>Filtros y fuentes</span>
-            <button onClick={()=>setShowDrawer(false)} style={{background:"none",border:"none",fontSize:18,color:"#94a3b8",padding:0}}>X</button>
+
+      {/* MOBILE DRAWER */}
+      {isMobile&&drawerOpen&&(
+        <div style={{position:"fixed",inset:0,zIndex:200,display:"flex"}}>
+          <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.4)"}} onClick={()=>setDrawerOpen(false)}/>
+          <div style={{position:"relative",width:260,background:"#fff",height:"100%",overflowY:"auto",padding:12,zIndex:201}}>
+            <button onClick={()=>setDrawerOpen(false)} style={{position:"absolute",top:10,right:10,background:"none",border:"none",fontSize:18,cursor:"pointer",color:"#94a3b8"}}>&#10005;</button>
+            <SideContent/>
           </div>
-          <SideContent/>
         </div>
       )}
-      <div style={{maxWidth:1060,margin:"0 auto",padding:isMobile?"12px":"16px 20px",display:"flex",gap:14}}>
-        <div style={{width:200,flexShrink:0,display:isMobile?"none":"flex",flexDirection:"column",gap:10}}><SideContent/></div>
-        <div style={{flex:1,minWidth:0}}>
-          {loading&&posts.length===0?(
-            <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"70px 20px",textAlign:"center"}}>
-              <div style={{fontSize:40,marginBottom:14}}>📡</div>
-              <div style={{fontSize:15,fontWeight:700,color:"#0f172a",marginBottom:6}}>Conectando a feeds RSS...</div>
-              <div style={{fontSize:12,color:"#64748b",marginBottom:14}}>{msg}</div>
-              <div style={{width:220,height:5,background:"#e2e8f0",borderRadius:99,margin:"0 auto"}}><div style={{height:5,background:"#7c3aed",borderRadius:99,width:pct+"%",transition:"width .4s"}}/></div>
-              <div style={{fontSize:11,color:"#94a3b8",marginTop:10}}>{done} de {sources.length} fuentes</div>
+
+      <div style={{display:"flex",maxWidth:1200,margin:"0 auto",padding:isMobile?"0":"0 16px"}}>
+        {/* DESKTOP SIDEBAR */}
+        {!isMobile&&(
+          <div style={{width:220,flexShrink:0,paddingTop:16,paddingRight:12}}>
+            <SideContent/>
+          </div>
+        )}
+
+        {/* MAIN CONTENT */}
+        <div style={{flex:1,padding:isMobile?"12px 10px":"16px 0 16px 12px",minWidth:0}}>
+          {view==="brief"&&<Brief posts={posts} customCats={customCats}/>}
+          {view==="table"&&(
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead>
+                  <tr style={{background:"#f1f5f9"}}>
+                    {["Titulo","Fuente","Categoria","Relevancia","Estado","Fecha"].map(h=>(
+                      <th key={h} style={{textAlign:"left",padding:"8px 10px",fontWeight:700,color:"#475569",whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((p,i)=>(
+                    <tr key={p.id} style={{background:i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #f1f5f9"}}>
+                      <td style={{padding:"7px 10px",maxWidth:260}}><a href={p.link} target="_blank" rel="noreferrer" style={{color:"#334155",textDecoration:"none",fontWeight:600}}>{p.title}</a></td>
+                      <td style={{padding:"7px 10px",color:"#64748b",whiteSpace:"nowrap"}}>{p.src}</td>
+                      <td style={{padding:"7px 10px",color:"#6366f1",whiteSpace:"nowrap"}}>{p.cat||"Sin categoria"}</td>
+                      <td style={{padding:"7px 10px"}}><span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:999,background:RC[p.rel]?.bg,color:RC[p.rel]?.c}}>{p.rel}</span></td>
+                      <td style={{padding:"7px 10px"}}><span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:999,background:SC[p.sta]?.bg,color:SC[p.sta]?.c}}>{p.sta}</span></td>
+                      <td style={{padding:"7px 10px",color:"#94a3b8",whiteSpace:"nowrap"}}>{p.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filtered.length===0&&<div style={{textAlign:"center",padding:40,color:"#94a3b8",fontSize:13}}>Sin resultados</div>}
             </div>
-          ):view==="brief"?<Brief posts={vis} isMobile={isMobile}/>
-          :view==="table"?(
-            vis.length===0
-              ?<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"40px",textAlign:"center",fontSize:12,color:"#94a3b8"}}>Sin posts con los filtros actuales.</div>
-              :<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                <thead><tr style={{background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>{["Newsletter","Titulo","Categoria","Fecha","Relevancia","Estado"].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:.5,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-                <tbody>{vis.map(p=><tr key={p.id} style={{borderBottom:"1px solid #f1f5f9",opacity:p.status==="Descartado"?.4:1}}>
-                  <td style={{padding:"9px 12px",fontSize:11,color:"#64748b",maxWidth:110,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.newsletter}</td>
-                  <td style={{padding:"9px 12px",maxWidth:230}}><a href={p.link} target="_blank" rel="noopener noreferrer" style={{fontWeight:600,fontSize:12,color:"#0f172a",textDecoration:"none",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{p.title}</a>{p.author&&<div style={{fontSize:10,color:"#94a3b8",marginTop:1}}>{p.author}</div>}</td>
-                  <td style={{padding:"9px 12px"}}><span style={{fontSize:10,background:"#f1f5f9",color:"#475569",padding:"2px 6px",borderRadius:4,whiteSpace:"nowrap"}}>{p.cat}</span></td>
-                  <td style={{padding:"9px 12px",fontSize:11,color:"#94a3b8",whiteSpace:"nowrap"}}>{p.date}</td>
-                  <td style={{padding:"9px 12px"}}>{pill(p.rel,RC[p.rel])}</td>
-                  <td style={{padding:"9px 12px"}}><select value={p.status} onChange={e=>setSta(p.id,e.target.value)} style={{fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"3px 5px",background:"#fff",color:"#334155"}}>{STATES.map(s=><option key={s}>{s}</option>)}</select></td>
-                </tr>)}</tbody>
-              </table></div></div>
-          ):(
-            vis.length===0
-              ?<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"40px",textAlign:"center",fontSize:12,color:"#94a3b8"}}>Sin posts con los filtros actuales.</div>
-              :<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(255px,1fr))",gap:isMobile?10:12}}>{vis.map(p=><PostCard key={p.id} p={p} onSta={setSta} onNote={setNote} onCat={setCat} allCats={allCats}/>)}</div>
+          )}
+          {view==="cards"&&(
+            <div>
+              <div style={{marginBottom:10,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <span style={{fontSize:12,color:"#94a3b8"}}>{filtered.length} artículos</span>
+                {hasFilter&&<button onClick={()=>setFil({src:"all",rel:"all",sta:"Nuevo",cat:"all"})} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"1px solid #e2e8f0",background:"transparent",color:"#94a3b8",cursor:"pointer"}}>&#10005; Limpiar filtros</button>}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
+                {filtered.map(p=>(
+                  <PostCard key={p.id} p={p}
+                    onSta={(id,sta)=>{saveAnn(id,{sta});setPosts(ps=>ps.map(x=>x.id===id?{...x,sta}:x));}}
+                    onNote={(id,note)=>{saveAnn(id,{note});setPosts(ps=>ps.map(x=>x.id===id?{...x,note}:x));}}
+                    onCat={(id,cat)=>{saveAnn(id,{cat});setPosts(ps=>ps.map(x=>x.id===id?{...x,cat}:x));}}
+                    onRel={(id,rel)=>{saveAnn(id,{rel});setPosts(ps=>ps.map(x=>x.id===id?{...x,rel}:x));}}
+                    customCats={customCats}
+                    onAddCat={addCustomCat}
+                  />
+                ))}
+                {filtered.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:40,color:"#94a3b8",fontSize:13}}>Sin resultados con los filtros actuales</div>}
+              </div>
+            </div>
           )}
         </div>
       </div>
     </div>
   );
 }
+
 ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
 </script>
 </body>
