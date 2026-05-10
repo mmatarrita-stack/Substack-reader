@@ -13,6 +13,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.3/babel.min.js"></script>
 <script type="text/babel">
 const {useState,useEffect,useRef}=React;
+const ANN_KEY="sr-v1-annotations";
+function getAnns(){try{return JSON.parse(localStorage.getItem(ANN_KEY)||"{}");}catch(e){return{};}}
+function saveAnn(id,data){try{const a=getAnns();localStorage.setItem(ANN_KEY,JSON.stringify({...a,[id]:{...a[id],...data}}));}catch(e){}}
 function useIsMobile(){const[m,setM]=useState(()=>window.innerWidth<680);useEffect(()=>{const h=()=>setM(window.innerWidth<680);window.addEventListener('resize',h);return()=>window.removeEventListener('resize',h);},[]);return m;}
 const PROXY="https://api.rss2json.com/v1/api.json?rss_url=";
 const SRCS=[
@@ -147,7 +150,7 @@ function App(){
     setLoading(true);setErrs({});setDone(0);
     const all=[];
     for(const s of srcs){setMsg(s.name);all.push(...await fetchOne(s));setDone(n=>n+1);}
-    setPosts(prev=>{const m={};prev.forEach(p=>{m[p.id]={status:p.status,notes:p.notes||"",cat:p.cat};});return all.map(p=>({...p,...(m[p.id]?{status:m[p.id].status,notes:m[p.id].notes,cat:m[p.id].cat}:{})})).sort((a,b)=>new Date(b.rawDate)-new Date(a.rawDate));});
+    setPosts(prev=>{const anns=getAnns();const m={};prev.forEach(p=>{m[p.id]={status:p.status,notes:p.notes||"",cat:p.cat};});return all.map(p=>{const ann=anns[p.id]||{};const pv=m[p.id]||{};return{...p,status:ann.status||pv.status||p.status,notes:ann.notes!==undefined?ann.notes:(pv.notes||""),cat:ann.cat||pv.cat||p.cat};}).sort((a,b)=>new Date(b.rawDate)-new Date(a.rawDate));});
     setLoading(false);setMsg("");
   }
 
@@ -155,9 +158,9 @@ function App(){
 
   function addSrc(){if(!nurl.trim())return;let u=nurl.trim().split(/[?#]/)[0].replace(/\/$/,"");if(!u.startsWith("http"))u="https://"+u;const m=u.match(/substack\.com\/@([a-zA-Z0-9_-]+)/);const feed=m?`https://${m[1]}.substack.com/feed`:u.endsWith("/feed")?u:u+"/feed";const ns={id:Date.now(),url:feed,name:nurl.trim()};const nx=[...sources,ns];setSources(nx);setNurl("");loadAll(nx);}
   function rmSrc(id){setSources(p=>p.filter(s=>s.id!==id));setPosts(p=>p.filter(x=>x.srcId!==id));}
-  function setSta(id,sta){setPosts(p=>p.map(x=>x.id===id?{...x,status:sta}:x));}
-  function setNote(id,note){setPosts(p=>p.map(x=>x.id===id?{...x,notes:note}:x));}
-  function setCat(id,cat){setPosts(p=>p.map(x=>x.id===id?{...x,cat}:x));}
+  function setSta(id,sta){saveAnn(id,{status:sta});setPosts(p=>p.map(x=>x.id===id?{...x,status:sta}:x));}
+  function setNote(id,note){saveAnn(id,{notes:note});setPosts(p=>p.map(x=>x.id===id?{...x,notes:note}:x));}
+  function setCat(id,cat){saveAnn(id,{cat});setPosts(p=>p.map(x=>x.id===id?{...x,cat}:x));}
 
   const allNL=[...new Set(posts.map(p=>p.newsletter))];
   const vis=posts.filter(p=>ip(p.rawDate,period)&&(fil.cat==="all"||p.cat===fil.cat)&&(fil.src==="all"||p.newsletter===fil.src)&&(fil.rel==="all"||p.rel===fil.rel)&&(fil.sta==="all"||p.status===fil.sta)&&(!autoHide||!["Leído","Descartado"].includes(p.status)));
