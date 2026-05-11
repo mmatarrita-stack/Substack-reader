@@ -20,7 +20,7 @@ function saveAnn(id,data){try{const a=getAnns();localStorage.setItem(ANN_KEY,JSO
 const DEFAULT_CATS=["Agents","System","Branding","Learning","Business"];
 function norm(s){return(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");}
 function titleSlug(t){return(t||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,70);}
-function getCustomCats(){try{const s=JSON.parse(localStorage.getItem(CATS_KEY)||"null");return(s&&s.length)?s:DEFAULT_CATS;}catch(e){return DEFAULT_CATS;}}
+function getCustomCats(){try{const s=JSON.parse(localStorage.getItem(CATS_KEY)||"null");if(!s||!s.length)return DEFAULT_CATS;const merged=[...DEFAULT_CATS];for(const c of s){if(!merged.includes(c))merged.push(c);}return merged;}catch(e){return DEFAULT_CATS;}}
 function saveCustomCats(arr){try{localStorage.setItem(CATS_KEY,JSON.stringify(arr));}catch(e){}}
 function useIsMobile(){const[m,setM]=useState(()=>window.innerWidth<680);useEffect(()=>{const h=()=>setM(window.innerWidth<680);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);return m;}
 const PROXY="https://api.rss2json.com/v1/api.json?rss_url=";
