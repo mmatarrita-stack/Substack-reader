@@ -197,20 +197,38 @@ function App(){
   function renameCustomCat(i,name){if(!name.trim())return;const n=customCats.map((c,idx)=>idx===i?name.trim():c);setCustomCats(n);saveCustomCats(n);}
   async function fetchOne(s){
     try{
-      const ak=localStorage.getItem("sr-v1-apikey")||"";
-      const reqUrl="https://api.rss2json.com/v1/api.json?"+(ak?"api_key="+ak+"&":"")+"rss_url="+encodeURIComponent(s.url);
-      const r=await fetch(reqUrl);
-      const d=await r.json();
-      if(d.status!=="ok")throw new Error(d.message);
-      const name=d.feed?.title||s.name;
-      setSources(p=>p.map(x=>x.id===s.id?{...x,name}:x));
-      return(d.items||[]).map(item=>{
-        const body=txt(item.content||item.description||"");
-        const partial=body.length<120;
-        const summary=partial?"Contenido parcial. Clic en el titulo para leer completo.":body.slice(0,280)+(body.length>280?"...":"");
-        const ideas=partial?[]:body.split(/[.!?]+/).map(x=>x.trim()).filter(x=>x.length>45).slice(0,3);
-        return{id:s.id+"|"+(item.guid||item.link||Math.random()),srcId:s.id,newsletter:name,title:item.title||"Sin titulo",author:item.author||"",date:fd(item.pubDate),rawDate:item.pubDate||"",link:item.link||"#",cat:"Sin categoria",rel:"Medio",summary,ideas,status:"Nuevo",partial,notes:""};
-      });
+      const isSubstack=s.url.includes("substack.com");
+      if(isSubstack){
+        const host=s.url.match(/https?:\/\/([^\/]+)/)[1];
+        const r=await fetch("https://"+host+"/api/v1/posts?limit=25");
+        if(!r.ok)throw new Error("status "+r.status);
+        const d=await r.json();
+        if(!Array.isArray(d))throw new Error("bad response");
+        setSources(p=>p.map(x=>x.id===s.id?{...x,name:s.name}:x));
+        return d.map(item=>{
+          const body=txt(item.body_html||item.description||"");
+          const partial=body.length<120;
+          const summary=partial?"Contenido parcial. Clic en el titulo para leer completo.":body.slice(0,280)+(body.length>280?"...":"");
+          const ideas=partial?[]:body.split(/[.!?]+/).map(x=>x.trim()).filter(x=>x.length>45).slice(0,3);
+          const postId=item.canonical_url||String(item.id||Math.random());
+          return{id:s.id+"|"+postId,srcId:s.id,newsletter:s.name,title:item.title||"Sin titulo",author:(item.publishedBylines&&item.publishedBylines[0])?item.publishedBylines[0].name:"",date:fd(item.post_date),rawDate:item.post_date||"",link:item.canonical_url||"#",cat:"Sin categoria",rel:"Medio",summary,ideas,status:"Nuevo",partial,notes:""};
+        });
+      }else{
+        const ak=localStorage.getItem("sr-v1-apikey")||"";
+        const reqUrl="https://api.rss2json.com/v1/api.json?"+(ak?"api_key="+ak+"&":"")+"rss_url="+encodeURIComponent(s.url);
+        const r=await fetch(reqUrl);
+        const d=await r.json();
+        if(d.status!=="ok")throw new Error(d.message);
+        const name=d.feed?.title||s.name;
+        setSources(p=>p.map(x=>x.id===s.id?{...x,name}:x));
+        return(d.items||[]).map(item=>{
+          const body=txt(item.content||item.description||"");
+          const partial=body.length<120;
+          const summary=partial?"Contenido parcial. Clic en el titulo para leer completo.":body.slice(0,280)+(body.length>280?"...":"");
+          const ideas=partial?[]:body.split(/[.!?]+/).map(x=>x.trim()).filter(x=>x.length>45).slice(0,3);
+          return{id:s.id+"|"+(item.guid||item.link||Math.random()),srcId:s.id,newsletter:name,title:item.title||"Sin titulo",author:item.author||"",date:fd(item.pubDate),rawDate:item.pubDate||"",link:item.link||"#",cat:"Sin categoria",rel:"Medio",summary,ideas,status:"Nuevo",partial,notes:""};
+        });
+      }
     }catch(e){setErrs(p=>({...p,[s.id]:true}));return[];}
   }
   async function loadAll(srcs){
