@@ -18,6 +18,7 @@ const CATS_KEY="sr-v1-custom-cats";
 function getAnns(){try{return JSON.parse(localStorage.getItem(ANN_KEY)||"{}");}catch(e){return{};}}
 function saveAnn(id,data){try{const a=getAnns();localStorage.setItem(ANN_KEY,JSON.stringify({...a,[id]:{...a[id],...data}}));}catch(e){}}
 const DEFAULT_CATS=["Agents","System","Branding","Learning","Business"];
+function norm(s){return(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");}
 function titleSlug(t){return(t||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,70);}
 function getCustomCats(){try{const s=JSON.parse(localStorage.getItem(CATS_KEY)||"null");return(s&&s.length)?s:DEFAULT_CATS;}catch(e){return DEFAULT_CATS;}}
 function saveCustomCats(arr){try{localStorage.setItem(CATS_KEY,JSON.stringify(arr));}catch(e){}}
@@ -257,7 +258,7 @@ function App(){
     (fil.rel==="all"||p.rel===fil.rel)&&
     (fil.sta==="all"||p.status===fil.sta)&&
     (!autoHide||!["Leido","Descartado"].includes(p.status))&&
-    (!noteSearch.trim()||(p.notes&&p.notes.toLowerCase().includes(noteSearch.toLowerCase())))
+    (!noteSearch.trim()||[p.title,p.newsletter,p.summary,p.notes].some(f=>norm(f).includes(norm(noteSearch))))
   );
   const hasFilter=fil.src!=="all"||fil.rel!=="all"||fil.sta!=="Nuevo"||fil.cat!=="all";
   const sb={background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:12,marginBottom:8};
@@ -363,12 +364,12 @@ function App(){
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
             <div style={{position:"relative",flex:1,maxWidth:340}}>
               <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:13,color:"#94a3b8",pointerEvents:"none"}}>&#128269;</span>
-              <input value={noteSearch} onChange={e=>setNoteSearch(e.target.value)} placeholder="Buscar en notas..." style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:20,padding:"6px 30px 6px 28px",background:"#fff",color:"#334155",outline:"none"}}/>
+              <input value={noteSearch} onChange={e=>setNoteSearch(e.target.value)} placeholder="Buscar artículos..." style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:20,padding:"6px 30px 6px 28px",background:"#fff",color:"#334155",outline:"none"}}/>
               {noteSearch&&<button onClick={()=>setNoteSearch("")} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",fontSize:13,color:"#94a3b8",lineHeight:1,padding:0}}>&#10005;</button>}
             </div>
             <span style={{fontSize:11,color:"#94a3b8",whiteSpace:"nowrap"}}>{visPosts.length} art.</span>
           </div>
-          {noteSearch.trim()&&<div style={{fontSize:11,marginBottom:10,color:visPosts.length>0?"#0d9488":"#94a3b8",fontWeight:600}}>{visPosts.length>0?visPosts.length+" nota"+(visPosts.length!==1?"s":"")+" encontrada"+(visPosts.length!==1?"s":""):"Sin coincidencias para \""+noteSearch+"\""}</div>}
+          {noteSearch.trim()&&<div style={{fontSize:11,marginBottom:10,color:visPosts.length>0?"#0d9488":"#94a3b8",fontWeight:600}}>{visPosts.length>0?visPosts.length+" artículo"+(visPosts.length!==1?"s":"")+" encontrado"+(visPosts.length!==1?"s":""):"Sin coincidencias para \""+noteSearch+"\""}</div>}
           {view==="brief"&&<Brief posts={visPosts} customCats={customCats}/>}
           {view==="table"&&(
             <div style={{overflowX:"auto"}}>
