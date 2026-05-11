@@ -197,7 +197,9 @@ function App(){
   function renameCustomCat(i,name){if(!name.trim())return;const n=customCats.map((c,idx)=>idx===i?name.trim():c);setCustomCats(n);saveCustomCats(n);}
   async function fetchOne(s){
     try{
-      const r=await fetch(PROXY+encodeURIComponent(s.url));
+      const ak=localStorage.getItem("sr-v1-apikey")||"";
+      const reqUrl="https://api.rss2json.com/v1/api.json?"+(ak?"api_key="+ak+"&":"")+"rss_url="+encodeURIComponent(s.url);
+      const r=await fetch(reqUrl);
       const d=await r.json();
       if(d.status!=="ok")throw new Error(d.message);
       const name=d.feed?.title||s.name;
@@ -254,6 +256,11 @@ function App(){
         <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:6}}>AGREGAR FUENTE</div>
         <input value={nurl} onChange={e=>setNurl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSrc()} placeholder="newsletter.substack.com" style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:6,padding:"5px 7px",marginBottom:6,color:"#0f172a"}}/>
         <button onClick={addSrc} style={{width:"100%",fontSize:11,fontWeight:600,border:"1px solid #e2e8f0",borderRadius:6,padding:"5px 0",background:"transparent",color:"#334155"}}>+ Agregar</button>
+      </div>
+      <div style={sb}>
+        <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:6}}>API KEY RSS2JSON</div>
+        <input defaultValue={localStorage.getItem("sr-v1-apikey")||""} onBlur={e=>{localStorage.setItem("sr-v1-apikey",e.target.value.trim());}} placeholder="Pega tu api_key aqui" style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 6px",color:"#334155",fontFamily:"monospace"}}/>
+        <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>rss2json.com → Dashboard → API key</div>
       </div>
       <div style={sb}>
         <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>FUENTES ({sources.length})</div>
