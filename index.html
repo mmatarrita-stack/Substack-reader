@@ -319,28 +319,6 @@ function App(){
         <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:6}}>ESTADO (click para filtrar)</div>
         {STATES.map(s=><StatusCount key={s} sta={s}/>)}
       </div>
-      <div style={sb}>
-        <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:6}}>DATOS</div>
-        <button onClick={()=>{
-          const data={annotations:getAnns(),cats:getCustomCats()};
-          const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-          const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="substack-intel-backup.json";a.click();
-        }} style={{width:"100%",fontSize:11,fontWeight:600,border:"1px solid #e2e8f0",borderRadius:6,padding:"5px 0",background:"transparent",color:"#334155",marginBottom:5}}>⬇ Exportar notas</button>
-        <label style={{width:"100%",fontSize:11,fontWeight:600,border:"1px solid #e2e8f0",borderRadius:6,padding:"5px 0",background:"transparent",color:"#334155",cursor:"pointer",display:"block",textAlign:"center"}}>
-          ⬆ Importar notas
-          <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{
-            const file=e.target.files[0];if(!file)return;
-            const reader=new FileReader();
-            reader.onload=ev=>{try{
-              const d=JSON.parse(ev.target.result);
-              if(d.annotations)localStorage.setItem("sr-v1-annotations",JSON.stringify(d.annotations));
-              if(d.cats)localStorage.setItem("sr-v1-custom-cats",JSON.stringify(d.cats));
-              location.reload();
-            }catch(err){alert("Archivo inválido");}}
-            reader.readAsText(file);
-          }}/>
-        </label>
-      </div>
     </div>
   );
   return(
