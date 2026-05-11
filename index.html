@@ -140,7 +140,7 @@ function Brief({posts,customCats}){
     </div>
   );
 }
-function CatManager({customCats,onAdd,onDelete,onRename,fil,setFil}){
+function CatManager({customCats,onAdd,onDelete,onRename,fil,setFil,posts}){
   const[newCat,setNewCat]=useState("");
   const[renaming,setRenaming]=useState(null);
   const[renameDraft,setRenameDraft]=useState("");
@@ -150,22 +150,25 @@ function CatManager({customCats,onAdd,onDelete,onRename,fil,setFil}){
     <div>
       <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>MIS CATEGORIAS</div>
       {customCats.length===0&&<div style={{fontSize:11,color:"#cbd5e1",marginBottom:8}}>Sin categorias creadas</div>}
-      {customCats.map((c,i)=>(
-        <div key={c} style={{display:"flex",alignItems:"center",gap:4,marginBottom:5}}>
-          {renaming===i?(
-            <>
-              <input value={renameDraft} onChange={e=>setRenameDraft(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doRename()} autoFocus style={{fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"3px 5px",flex:1}}/>
-              <button onClick={doRename} style={{fontSize:10,padding:"3px 6px",borderRadius:4,border:"none",background:"#0f172a",color:"#fff"}}>ok</button>
-            </>
-          ):(
-            <>
-              <button onClick={()=>setFil(f=>({...f,cat:f.cat===c?"all":c}))} style={{fontSize:11,flex:1,textAlign:"left",padding:"4px 8px",borderRadius:6,border:"1px solid "+(fil.cat===c?"#6366f1":"#e2e8f0"),background:fil.cat===c?"#ede9fe":"transparent",color:fil.cat===c?"#6d28d9":"#334155",fontWeight:fil.cat===c?700:400}}>{c}</button>
-              <button onClick={()=>{setRenaming(i);setRenameDraft(c);}} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#cbd5e1"}}>✎</button>
-              <button onClick={()=>onDelete(i)} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#fca5a5"}}>✕</button>
-            </>
-          )}
-        </div>
-      ))}
+      {customCats.map((c,i)=>{
+        const count=(posts||[]).filter(p=>p.cat===c).length;
+        return(
+          <div key={c} style={{display:"flex",alignItems:"center",gap:4,marginBottom:5}}>
+            {renaming===i?(
+              <>
+                <input value={renameDraft} onChange={e=>setRenameDraft(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doRename()} autoFocus style={{fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"3px 5px",flex:1}}/>
+                <button onClick={doRename} style={{fontSize:10,padding:"3px 6px",borderRadius:4,border:"none",background:"#0f172a",color:"#fff"}}>ok</button>
+              </>
+            ):(
+              <>
+                <button onClick={()=>setFil(f=>({...f,cat:f.cat===c?"all":c}))} style={{fontSize:11,flex:1,textAlign:"left",padding:"4px 8px",borderRadius:6,border:"1px solid "+(fil.cat===c?"#6366f1":"#e2e8f0"),background:fil.cat===c?"#ede9fe":"transparent",color:fil.cat===c?"#6d28d9":"#334155",fontWeight:fil.cat===c?700:400}}>{c} <span style={{fontSize:10,opacity:.6}}>({count})</span></button>
+                <button onClick={()=>{setRenaming(i);setRenameDraft(c);}} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#cbd5e1"}}>✎</button>
+                <button onClick={()=>onDelete(i)} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#fca5a5"}}>✕</button>
+              </>
+            )}
+          </div>
+        );
+      })}
       {fil.cat!=="all"&&<button onClick={()=>setFil(f=>({...f,cat:"all"}))} style={{fontSize:10,width:"100%",padding:"3px 0",borderRadius:5,border:"1px solid #e2e8f0",background:"transparent",color:"#94a3b8",marginBottom:6}}>Limpiar filtro</button>}
       <div style={{display:"flex",gap:4,marginTop:4}}>
         <input value={newCat} onChange={e=>setNewCat(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCat()} placeholder="Nueva categoria..." style={{fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"4px 6px",flex:1}}/>
@@ -188,6 +191,7 @@ function App(){
   const[autoHide,setAutoHide]=useState(false);
   const[showDrawer,setShowDrawer]=useState(false);
   const[customCats,setCustomCats]=useState(()=>getCustomCats());
+  const[noteSearch,setNoteSearch]=useState("");
   function addCustomCat(name){if(customCats.includes(name))return;const n=[...customCats,name];setCustomCats(n);saveCustomCats(n);}
   function delCustomCat(i){const n=customCats.filter((_,idx)=>idx!==i);setCustomCats(n);saveCustomCats(n);}
   function renameCustomCat(i,name){if(!name.trim())return;const n=customCats.map((c,idx)=>idx===i?name.trim():c);setCustomCats(n);saveCustomCats(n);}
@@ -223,7 +227,15 @@ function App(){
   function onCat(id,cat){saveAnn(id,{cat});setPosts(p=>p.map(x=>x.id===id?{...x,cat}:x));}
   function onRel(id,rel){saveAnn(id,{rel});setPosts(p=>p.map(x=>x.id===id?{...x,rel}:x));}
   const allNL=[...new Set(posts.map(p=>p.newsletter))];
-  const visPosts=posts.filter(p=>ip(p.rawDate,period)&&(fil.cat==="all"||p.cat===fil.cat)&&(fil.src==="all"||p.newsletter===fil.src)&&(fil.rel==="all"||p.rel===fil.rel)&&(fil.sta==="all"||p.status===fil.sta)&&(!autoHide||!["Leido","Descartado"].includes(p.status)));
+  const visPosts=posts.filter(p=>
+    ip(p.rawDate,period)&&
+    (fil.cat==="all"||p.cat===fil.cat)&&
+    (fil.src==="all"||p.newsletter===fil.src)&&
+    (fil.rel==="all"||p.rel===fil.rel)&&
+    (fil.sta==="all"||p.status===fil.sta)&&
+    (!autoHide||!["Leido","Descartado"].includes(p.status))&&
+    (!noteSearch.trim()||(p.notes&&p.notes.toLowerCase().includes(noteSearch.toLowerCase())))
+  );
   const hasFilter=fil.src!=="all"||fil.rel!=="all"||fil.sta!=="Nuevo"||fil.cat!=="all";
   const sb={background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:12,marginBottom:8};
   const StatusCount=({sta})=>{
@@ -254,10 +266,16 @@ function App(){
         ))}
       </div>
       <div style={sb}>
-        <CatManager customCats={customCats} onAdd={addCustomCat} onDelete={delCustomCat} onRename={renameCustomCat} fil={fil} setFil={setFil}/>
+        <CatManager customCats={customCats} onAdd={addCustomCat} onDelete={delCustomCat} onRename={renameCustomCat} fil={fil} setFil={setFil} posts={posts}/>
       </div>
       <div style={sb}>
         <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>FILTROS</div>
+        <div style={{marginBottom:7}}>
+          <div style={{fontSize:10,color:"#94a3b8",marginBottom:2}}>Periodo</div>
+          <select value={period} onChange={e=>setPeriod(e.target.value)} style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"4px 5px",background:"#fff",color:"#334155"}}>
+            {[["cur","Mes actual"],["prev","Mes anterior"],["60d","60 dias"],["all","Todo"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
         {[["Newsletter","src",["all",...allNL]],["Relevancia","rel",["all","Alto","Medio","Bajo"]]].map(([lbl,key,opts])=>(
           <div key={key} style={{marginBottom:7}}>
             <div style={{fontSize:10,color:"#94a3b8",marginBottom:2}}>{lbl}</div>
@@ -303,12 +321,26 @@ function App(){
       <div style={{display:"flex",maxWidth:1200,margin:"0 auto"}}>
         {!isMobile&&<div style={{width:220,flexShrink:0,padding:"16px 8px 16px 16px"}}><SideContent/></div>}
         <div style={{flex:1,padding:isMobile?"12px 10px":"16px 12px",minWidth:0}}>
-          <div style={{display:"flex",gap:6,marginBottom:12,overflowX:"auto",paddingBottom:2}}>
-            {[["cur","Mes actual"],["prev","Mes anterior"],["60d","60 dias"],["all","Todo"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setPeriod(v)} style={{fontSize:11,fontWeight:600,padding:"4px 12px",borderRadius:20,border:"none",background:period===v?"#0f172a":"#e2e8f0",color:period===v?"#fff":"#64748b",whiteSpace:"nowrap"}}>{l}</button>
-            ))}
-            <span style={{fontSize:11,color:"#94a3b8",alignSelf:"center",marginLeft:4}}>{visPosts.length} articulos</span>
+          <div style={{display:"flex",gap:6,marginBottom:8,overflowX:"auto",paddingBottom:2}}>
+            <button onClick={()=>setFil(f=>({...f,cat:"all"}))} style={{fontSize:11,fontWeight:600,padding:"4px 12px",borderRadius:20,border:"none",background:fil.cat==="all"?"#0f172a":"#e2e8f0",color:fil.cat==="all"?"#fff":"#64748b",whiteSpace:"nowrap",flexShrink:0}}>
+              Todos ({posts.filter(p=>ip(p.rawDate,period)).length})
+            </button>
+            {customCats.map(cat=>{
+              const n=posts.filter(p=>p.cat===cat&&ip(p.rawDate,period)).length;
+              return n>0?(
+                <button key={cat} onClick={()=>setFil(f=>({...f,cat:f.cat===cat?"all":cat}))} style={{fontSize:11,fontWeight:600,padding:"4px 12px",borderRadius:20,border:"none",background:fil.cat===cat?"#6366f1":"#e2e8f0",color:fil.cat===cat?"#fff":"#64748b",whiteSpace:"nowrap",flexShrink:0}}>{cat} ({n})</button>
+              ):null;
+            })}
           </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+            <div style={{position:"relative",flex:1,maxWidth:340}}>
+              <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:13,color:"#94a3b8",pointerEvents:"none"}}>&#128269;</span>
+              <input value={noteSearch} onChange={e=>setNoteSearch(e.target.value)} placeholder="Buscar en notas..." style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:20,padding:"6px 30px 6px 28px",background:"#fff",color:"#334155",outline:"none"}}/>
+              {noteSearch&&<button onClick={()=>setNoteSearch("")} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",fontSize:13,color:"#94a3b8",lineHeight:1,padding:0}}>&#10005;</button>}
+            </div>
+            <span style={{fontSize:11,color:"#94a3b8",whiteSpace:"nowrap"}}>{visPosts.length} art.</span>
+          </div>
+          {noteSearch.trim()&&<div style={{fontSize:11,marginBottom:10,color:visPosts.length>0?"#0d9488":"#94a3b8",fontWeight:600}}>{visPosts.length>0?visPosts.length+" nota"+(visPosts.length!==1?"s":"")+" encontrada"+(visPosts.length!==1?"s":""):"Sin coincidencias para \""+noteSearch+"\""}</div>}
           {view==="brief"&&<Brief posts={visPosts} customCats={customCats}/>}
           {view==="table"&&(
             <div style={{overflowX:"auto"}}>
