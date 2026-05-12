@@ -522,4 +522,18 @@ function App(){
               {hasFilter&&<div style={{marginBottom:8}}><button onClick={()=>setFil({src:"all",rel:"all",sta:"Nuevo",cat:"all",area:"all"})} style={{fontSize:11,padding:"3px 10px",borderRadius:5,border:"1px solid #e2e8f0",background:"transparent",color:"#94a3b8"}}>&#10005; Limpiar filtros</button></div>}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
                 {visPosts.map(p=>(
-                  <PostCard key={p.id} p={p} onS
+                  <PostCard key={p.id} p={p} onSta={onSta} onNote={onNote} onCat={onCat} onRel={onRel} onArea={onArea} customCats={customCats} areas={areas} onAddCat={addCustomCat}/>
+                ))}
+                {visPosts.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:40,color:"#94a3b8",fontSize:13}}>Sin resultados con los filtros actuales</div>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("app")).render(<App/>);
+</script>
+</body>
+</html>
