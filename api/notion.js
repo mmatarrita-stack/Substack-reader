@@ -102,8 +102,9 @@ export default async function handler(req, res) {
       'Notas':         { rich_text:  [{ text: { content: (notes || '').slice(0, 2000) } }] },
     };
     if (rel)                        props['Relevancia'] = { select: { name: rel } };
-    if (cat && cat !== 'Sin categoria') props['Categoría'] = { select: { name: cat } };
+    if (cat) props['Categoría'] = { select: { name: cat } };
     if (area)                       props['Área']      = { select: { name: area } };
+    props['Estado'] = { select: { name: 'Guardado' } };
 
     // Contenido enriquecido de la página (solo al crear)
     const blocks = [];

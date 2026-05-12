@@ -279,9 +279,13 @@ function App(){
         return;
       }
       const analyses=JSON.parse(localStorage.getItem("sr-v1-analyses")||"{}");
-      const an=analyses[post.id]||{};
-      const summary=an.summary||"";
-      const ideas=an.ideas||[];
+      const rawAn=analyses[post.id]||"";
+      const anText=typeof rawAn==="string"?rawAn:"";
+      const sumMatch=anText.match(/## Idea Principal\s*([\s\S]*?)(?=##|$)/);
+      const summary=sumMatch?sumMatch[1].trim().slice(0,2000):"";
+      const insMatch=anText.match(/## Insights Estratégicos\s*([\s\S]*?)(?=##|$)/);
+      const insRaw=insMatch?insMatch[1].trim():"";
+      const ideas=insRaw.split("\n").map(l=>l.replace(/^[-•*]\s*/,"").trim()).filter(l=>l.length>20).slice(0,5);
       const body={notionKey:nk,action:action,postId:post.id,title:post.title,newsletter:post.newsletter,link:post.link,date:post.date,rel:post.rel,cat:post.cat,area:post.area,notes:post.notes,notionPageId:nid,summary,ideas};
       const r=await fetch("/api/notion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       const d=await r.json();
