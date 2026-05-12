@@ -15,14 +15,25 @@
 const {useState,useEffect}=React;
 const ANN_KEY="sr-v1-annotations";
 const CATS_KEY="sr-v1-custom-cats";
+const AREAS_KEY="sr-v1-areas";
+const ANALYSES_KEY="sr-v1-analyses";
+const NOTION_KEY="sr-v1-notion-key";
 function getAnns(){try{return JSON.parse(localStorage.getItem(ANN_KEY)||"{}");}catch(e){return{};}}
 function saveAnn(id,data){try{const a=getAnns();localStorage.setItem(ANN_KEY,JSON.stringify({...a,[id]:{...a[id],...data}}));}catch(e){}}
+function getAnalyses(){try{return JSON.parse(localStorage.getItem(ANALYSES_KEY)||"{}");}catch(e){return{};}}
+function saveAnalysisCache(id,text){try{const a=getAnalyses();a[id]=text;localStorage.setItem(ANALYSES_KEY,JSON.stringify(a));}catch(e){}}
 const DEFAULT_CATS=["Agents","System","Branding","Learning","Business"];
-function norm(s){return(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");}
+const DEFAULT_AREAS=["Contabilidad","Cr\u00e9dito","Operaciones","Tecnolog\u00eda"];
+function norm(s){return(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
 function titleSlug(t){return(t||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,70);}
 function getCustomCats(){try{const s=JSON.parse(localStorage.getItem(CATS_KEY)||"null");if(!s||!s.length)return DEFAULT_CATS;const merged=[...DEFAULT_CATS];for(const c of s){if(!merged.includes(c))merged.push(c);}return merged;}catch(e){return DEFAULT_CATS;}}
 function saveCustomCats(arr){try{localStorage.setItem(CATS_KEY,JSON.stringify(arr));}catch(e){}}
+function getAreas(){try{const s=JSON.parse(localStorage.getItem(AREAS_KEY)||"null");if(!s||!s.length)return DEFAULT_AREAS;const merged=[...DEFAULT_AREAS];for(const a of s){if(!merged.includes(a))merged.push(a);}return merged;}catch(e){return DEFAULT_AREAS;}}
+function saveAreas(arr){try{localStorage.setItem(AREAS_KEY,JSON.stringify(arr));}catch(e){}}
 function useIsMobile(){const[m,setM]=useState(()=>window.innerWidth<680);useEffect(()=>{const h=()=>setM(window.innerWidth<680);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);return m;}
+function parseAnalysis(text){const sections=[];const lines2=text.split("\n");let cur=null;for(const line of lines2){if(line.startsWith("## ")){if(cur)sections.push(cur);cur={title:line.slice(3).trim(),content:""};}else if(cur){cur.content+=(cur.content?"\n":"")+line;}}if(cur)sections.push(cur);return sections.map(s=>({...s,content:s.content.trim()}));}
+const SEC_COL={"idea":{bg:"#eff6ff",border:"#bfdbfe",title:"#1d4ed8"},"problema":{bg:"#fff7ed",border:"#fed7aa",title:"#c2410c"},"aplica":{bg:"#f0fdf4",border:"#bbf7d0",title:"#15803d"},"framework":{bg:"#faf5ff",border:"#e9d5ff",title:"#7e22ce"},"herramienta":{bg:"#f0f9ff",border:"#bae6fd",title:"#0369a1"},"insight":{bg:"#fefce8",border:"#fef08a",title:"#a16207"},"accion":{bg:"#fff1f2",border:"#fecdd3",title:"#be123c"}};
+function secColor(title){const t=title.toLowerCase();if(t.includes("idea"))return SEC_COL["idea"];if(t.includes("problema"))return SEC_COL["problema"];if(t.includes("aplica"))return SEC_COL["aplica"];if(t.includes("framework"))return SEC_COL["framework"];if(t.includes("herramienta"))return SEC_COL["herramienta"];if(t.includes("insight"))return SEC_COL["insight"];if(t.includes("accion"))return SEC_COL["accion"];return{bg:"#f8fafc",border:"#e2e8f0",title:"#334155"};}
 const PROXY="https://api.rss2json.com/v1/api.json?rss_url=";
 const SRCS=[{id:1,url:"https://oneusefulthing.substack.com/feed",name:"One Useful Thing"},{id:2,url:"https://opinionai.substack.com/feed",name:"Opinion AI"},{id:3,url:"https://jennyouyang.substack.com/feed",name:"Jenny Ouyang"},{id:4,url:"https://gencay.substack.com/feed",name:"Gencay I."},{id:5,url:"https://tudosisia.substack.com/feed",name:"Tu Dosisia"}];
 const NOW=new Date(),CM=NOW.getMonth(),CY=NOW.getFullYear(),PM=CM===0?11:CM-1,PY=CM===0?CY-1:CY;
@@ -33,10 +44,14 @@ const RC={Alto:{bg:"#dcfce7",c:"#15803d"},Medio:{bg:"#fef9c3",c:"#a16207"},Bajo:
 const SC={Nuevo:{bg:"#dbeafe",c:"#1d4ed8"},Guardado:{bg:"#ede9fe",c:"#6d28d9"},Leido:{bg:"#f1f5f9",c:"#64748b"},Descartado:{bg:"#fee2e2",c:"#b91c1c"}};
 const STATES=["Nuevo","Guardado","Leido","Descartado"];
 const RELS=["Alto","Medio","Bajo"];
-function PostCard({p,onSta,onNote,onCat,onRel,customCats,onAddCat}){
+function PostCard({p,onSta,onNote,onCat,onRel,onArea,customCats,areas,onAddCat}){
   const[noteOpen,setNoteOpen]=useState(false);
   const[catOpen,setCatOpen]=useState(false);
   const[resumeOpen,setResumeOpen]=useState(false);
+  const[aiOpen,setAiOpen]=useState(false);
+  const[aiLoading,setAiLoading]=useState(false);
+  const[aiError,setAiError]=useState("");
+  const[aiText,setAiText]=useState("");
   const[draft,setDraft]=useState(p.notes||"");
   const[newCat,setNewCat]=useState("");
   const inMyCats=customCats.includes(p.cat);
@@ -45,6 +60,20 @@ function PostCard({p,onSta,onNote,onCat,onRel,customCats,onAddCat}){
   const noteLines=(p.notes||"").split("\n").filter(l=>l.trim());
   const noteHead=noteLines[0]||"";
   function addNewCat(){if(!newCat.trim())return;onAddCat(newCat.trim());onCat(p.id,newCat.trim());setNewCat("");setCatOpen(false);}
+  async function handleAI(){
+    const cache=getAnalyses();
+    if(cache[p.id]){setAiText(cache[p.id]);setAiOpen(v=>!v);return;}
+    setAiLoading(true);setAiError("");setAiOpen(true);
+    try{
+      const claudeKey=localStorage.getItem("sr-v1-claude-key")||"";
+      const r=await fetch("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:p.title,content:p.summary,apiKey:claudeKey})});
+      const d=await r.json();
+      if(d.error)throw new Error(d.error);
+      setAiText(d.analysis);
+      saveAnalysisCache(p.id,d.analysis);
+    }catch(e){setAiError(e.message);}
+    finally{setAiLoading(false);}
+  }
   return(
     <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:14,display:"flex",flexDirection:"column",gap:8}}>
       <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
@@ -53,6 +82,10 @@ function PostCard({p,onSta,onNote,onCat,onRel,customCats,onAddCat}){
         </select>
         <select value={p.rel} onChange={e=>onRel(p.id,e.target.value)} style={{fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:999,border:"none",background:RC[p.rel]?.bg,color:RC[p.rel]?.c,cursor:"pointer"}}>
           {RELS.map(r=><option key={r} value={r}>{r}</option>)}
+        </select>
+        <select value={p.area||""} onChange={e=>onArea(p.id,e.target.value)} style={{fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:999,border:"none",background:p.area?"#e0f2fe":"#f1f5f9",color:p.area?"#0369a1":"#94a3b8",cursor:"pointer"}}>
+          <option value="">Sin area</option>
+          {(areas||[]).map(a=><option key={a} value={a}>{a}</option>)}
         </select>
         <span style={{fontSize:10,color:"#94a3b8",marginLeft:"auto"}}>{p.date}</span>
       </div>
@@ -76,6 +109,7 @@ function PostCard({p,onSta,onNote,onCat,onRel,customCats,onAddCat}){
       {p.summary&&<div style={{fontSize:11,color:"#64748b",lineHeight:1.5}}>{p.summary.slice(0,140)}{p.summary.length>140?"...":""}</div>}
       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
         <button onClick={()=>setResumeOpen(v=>!v)} style={{fontSize:10,fontWeight:600,padding:"3px 10px",borderRadius:6,border:"1px solid #0d9488",background:resumeOpen?"#0d9488":"transparent",color:resumeOpen?"#fff":"#0d9488"}}>Ver resumen</button>
+        <button onClick={handleAI} style={{fontSize:10,fontWeight:600,padding:"3px 10px",borderRadius:6,border:"1px solid #6366f1",background:aiOpen?"#6366f1":"transparent",color:aiOpen?"#fff":"#6366f1"}}>{aiLoading?"Analizando...":"\u2726 Analizar"}</button>
         <button onClick={()=>setNoteOpen(v=>!v)} style={{fontSize:10,fontWeight:600,padding:"3px 10px",borderRadius:6,border:"1px solid #e2e8f0",background:noteOpen?"#f1f5f9":"transparent",color:"#64748b"}}>{p.notes?"Editar nota":"+ Nota"}</button>
       </div>
       {resumeOpen&&(
@@ -87,11 +121,34 @@ function PostCard({p,onSta,onNote,onCat,onRel,customCats,onAddCat}){
               {p.ideas&&p.ideas.length>0&&(
                 <div>
                   <div style={{fontSize:10,fontWeight:700,color:"#0f766e",marginBottom:4}}>Ideas clave</div>
-                  {p.ideas.map((idea,i)=><div key={i} style={{fontSize:10,color:"#475569",marginBottom:3,paddingLeft:8,borderLeft:"2px solid #99f6e4"}}>· {idea}</div>)}
+                  {p.ideas.map((idea,i)=><div key={i} style={{fontSize:10,color:"#475569",marginBottom:3,paddingLeft:8,borderLeft:"2px solid #99f6e4"}}>\u00b7 {idea}</div>)}
                 </div>
               )}
-              <a href={p.link} target="_blank" rel="noreferrer" style={{fontSize:10,color:"#0d9488",display:"block",marginTop:6}}>Leer articulo completo →</a>
+              <a href={p.link} target="_blank" rel="noreferrer" style={{fontSize:10,color:"#0d9488",display:"block",marginTop:6}}>Leer articulo completo \u2192</a>
             </>
+          )}
+        </div>
+      )}
+      {aiOpen&&(
+        <div style={{background:"#fafafa",border:"1px solid #e2e8f0",borderRadius:10,padding:14}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#6366f1",marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span>\u2726 Analisis Estrategico</span>
+            <button onClick={()=>setAiOpen(false)} style={{background:"none",border:"none",fontSize:13,color:"#94a3b8",lineHeight:1,padding:0}}>&#10005;</button>
+          </div>
+          {aiLoading&&<div style={{fontSize:11,color:"#94a3b8",textAlign:"center",padding:"20px 0"}}>Analizando con Claude...</div>}
+          {aiError&&<div style={{fontSize:11,color:"#b91c1c",background:"#fee2e2",borderRadius:6,padding:"8px 10px"}}>{aiError}</div>}
+          {!aiLoading&&!aiError&&aiText&&(
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {parseAnalysis(aiText).map((sec,i)=>{
+                const col=secColor(sec.title);
+                return(
+                  <div key={i} style={{background:col.bg,border:"1px solid "+col.border,borderRadius:8,padding:10}}>
+                    <div style={{fontSize:10,fontWeight:700,color:col.title,marginBottom:5,textTransform:"uppercase",letterSpacing:.5}}>{sec.title}</div>
+                    <div style={{fontSize:11,color:"#334155",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{sec.content}</div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
@@ -135,7 +192,7 @@ function Brief({posts,customCats}){
           {items.slice(0,6).map(p=>(
             <div key={p.id} style={{marginBottom:7,paddingBottom:7,borderBottom:"1px solid #f8fafc"}}>
               <a href={p.link} target="_blank" rel="noreferrer" style={{fontSize:12,color:"#334155",textDecoration:"none",fontWeight:500,lineHeight:1.35,display:"block"}}>{p.title}</a>
-              <div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>{p.newsletter} · {p.date}</div>
+              <div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>{p.newsletter} \u00b7 {p.date}</div>
             </div>
           ))}
         </div>
@@ -165,8 +222,8 @@ function CatManager({customCats,onAdd,onDelete,onRename,fil,setFil,posts}){
             ):(
               <>
                 <button onClick={()=>setFil(f=>({...f,cat:f.cat===c?"all":c}))} style={{fontSize:11,flex:1,textAlign:"left",padding:"4px 8px",borderRadius:6,border:"1px solid "+(fil.cat===c?"#6366f1":"#e2e8f0"),background:fil.cat===c?"#ede9fe":"transparent",color:fil.cat===c?"#6d28d9":"#334155",fontWeight:fil.cat===c?700:400}}>{c} <span style={{fontSize:10,opacity:.6}}>({count})</span></button>
-                <button onClick={()=>{setRenaming(i);setRenameDraft(c);}} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#cbd5e1"}}>✎</button>
-                <button onClick={()=>onDelete(i)} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#fca5a5"}}>✕</button>
+                <button onClick={()=>{setRenaming(i);setRenameDraft(c);}} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#cbd5e1"}}>\u270e</button>
+                <button onClick={()=>onDelete(i)} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#fca5a5"}}>\u2715</button>
               </>
             )}
           </div>
@@ -180,6 +237,16 @@ function CatManager({customCats,onAdd,onDelete,onRename,fil,setFil,posts}){
     </div>
   );
 }
+function AreaInput({onAdd}){
+  const[v,setV]=useState("");
+  function add(){if(!v.trim())return;onAdd(v.trim());setV("");}
+  return(
+    <div style={{display:"flex",gap:4,marginTop:4}}>
+      <input value={v} onChange={e=>setV(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} placeholder="Nueva area..." style={{fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,padding:"4px 6px",flex:1}}/>
+      <button onClick={add} style={{fontSize:11,fontWeight:700,padding:"4px 8px",borderRadius:5,border:"none",background:"#0369a1",color:"#fff"}}>+</button>
+    </div>
+  );
+}
 function App(){
   const isMobile=useIsMobile();
   const[sources,setSources]=useState(SRCS);
@@ -190,56 +257,73 @@ function App(){
   const[view,setView]=useState("brief");
   const[period,setPeriod]=useState("cur");
   const[nurl,setNurl]=useState("");
-  const[fil,setFil]=useState({src:"all",rel:"all",sta:"Nuevo",cat:"all"});
+  const[fil,setFil]=useState({src:"all",rel:"all",sta:"Nuevo",cat:"all",area:"all"});
   const[autoHide,setAutoHide]=useState(false);
   const[showDrawer,setShowDrawer]=useState(false);
   const[customCats,setCustomCats]=useState(()=>getCustomCats());
+  const[areas,setAreas]=useState(()=>getAreas());
   const[noteSearch,setNoteSearch]=useState("");
   function addCustomCat(name){if(customCats.includes(name))return;const n=[...customCats,name];setCustomCats(n);saveCustomCats(n);}
   function delCustomCat(i){const n=customCats.filter((_,idx)=>idx!==i);setCustomCats(n);saveCustomCats(n);}
   function renameCustomCat(i,name){if(!name.trim())return;const n=customCats.map((c,idx)=>idx===i?name.trim():c);setCustomCats(n);saveCustomCats(n);}
-  async function fetchViaRss2json(s){
-    const ak=localStorage.getItem("sr-v1-apikey")||"";
-    const reqUrl="https://api.rss2json.com/v1/api.json?"+(ak?"api_key="+ak+"&":"")+"rss_url="+encodeURIComponent(s.url);
-    const r=await fetch(reqUrl);
-    const d=await r.json();
-    if(d.status!=="ok")throw new Error(d.message||"rss2json error");
-    const name=d.feed?.title||s.name;
-    setSources(p=>p.map(x=>x.id===s.id?{...x,name}:x));
-    return(d.items||[]).map(item=>{
-      const body=txt(item.content||item.description||"");
-      const partial=body.length<120;
-      const summary=partial?"Contenido parcial. Clic en el titulo para leer completo.":body.slice(0,280)+(body.length>280?"...":"");
-      const ideas=partial?[]:body.split(/[.!?]+/).map(x=>x.trim()).filter(x=>x.length>45).slice(0,3);
-      return{id:s.id+"|"+(titleSlug(item.title)||item.guid||item.link||Math.random()),srcId:s.id,newsletter:name,title:item.title||"Sin titulo",author:item.author||"",date:fd(item.pubDate),rawDate:item.pubDate||"",link:item.link||"#",cat:"Sin categoria",rel:"Medio",summary,ideas,status:"Nuevo",partial,notes:""};
-    });
+  const notionPageIds=React.useRef({});
+  async function pushToNotion(post,action){
+    const nk=localStorage.getItem(NOTION_KEY)||"";
+    if(!nk)return;
+    const nid=notionPageIds.current[post.id]||null;
+    try{
+      if(action==="remove"){
+        if(!nid)return;
+        await fetch("/api/notion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({notionKey:nk,action:"remove",notionPageId:nid})});
+        delete notionPageIds.current[post.id];
+        return;
+      }
+      const analyses=JSON.parse(localStorage.getItem("sr-v1-analyses")||"{}");
+      const an=analyses[post.id]||{};
+      const summary=an.summary||"";
+      const ideas=an.ideas||[];
+      const body={notionKey:nk,action:action,postId:post.id,title:post.title,newsletter:post.newsletter,link:post.link,date:post.date,rel:post.rel,cat:post.cat,area:post.area,notes:post.notes,notionPageId:nid,summary,ideas};
+      const r=await fetch("/api/notion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const d=await r.json();
+      if(d.ok&&d.notionPageId)notionPageIds.current[post.id]=d.notionPageId;
+    }catch(e){}
   }
+  function addArea(name){if(!name.trim()||areas.includes(name.trim()))return;const n=[...areas,name.trim()];setAreas(n);saveAreas(n);}
+  function delArea(i){const n=areas.filter((_,idx)=>idx!==i);setAreas(n);saveAreas(n);}
   async function fetchOne(s){
     try{
       const isSubstack=s.url.includes("substack.com");
       if(isSubstack){
-        try{
-          const host=s.url.match(/https?:\/\/([^\/]+)/)[1];
-          const apiUrl="/api/proxy?url="+encodeURIComponent("https://"+host+"/api/v1/posts?limit=25");
-          const r=await fetch(apiUrl);
-          if(!r.ok)throw new Error("proxy status "+r.status);
-          const d=await r.json();
-          const items=Array.isArray(d)?d:(d.posts||d.items||[]);
-          if(!Array.isArray(items)||items.length===0)throw new Error("empty or bad proxy response");
-          setSources(p=>p.map(x=>x.id===s.id?{...x,name:s.name}:x));
-          return items.map(item=>{
-            const body=txt(item.body_html||item.description||"");
-            const partial=body.length<120;
-            const summary=partial?"Contenido parcial. Clic en el titulo para leer completo.":body.slice(0,280)+(body.length>280?"...":"");
-            const ideas=partial?[]:body.split(/[.!?]+/).map(x=>x.trim()).filter(x=>x.length>45).slice(0,3);
-            const postId=titleSlug(item.title)||item.canonical_url||String(item.id||Math.random());
-            return{id:s.id+"|"+postId,srcId:s.id,newsletter:s.name,title:item.title||"Sin titulo",author:(item.publishedBylines&&item.publishedBylines[0])?item.publishedBylines[0].name:"",date:fd(item.post_date),rawDate:item.post_date||"",link:item.canonical_url||"#",cat:"Sin categoria",rel:"Medio",summary,ideas,status:"Nuevo",partial,notes:""};
-          });
-        }catch(proxyErr){
-          return await fetchViaRss2json(s);
-        }
+        const host=s.url.match(/https?:\/\/([^\/]+)/)[1];
+        const apiUrl="/api/proxy?url="+encodeURIComponent("https://"+host+"/api/v1/posts?limit=25");
+        const r=await fetch(apiUrl);
+        if(!r.ok)throw new Error("status "+r.status);
+        const d=await r.json();
+        if(!Array.isArray(d))throw new Error("bad response");
+        setSources(p=>p.map(x=>x.id===s.id?{...x,name:s.name}:x));
+        return d.map(item=>{
+          const body=txt(item.body_html||item.description||"");
+          const partial=body.length<120;
+          const summary=partial?"Contenido parcial. Clic en el titulo para leer completo.":body.slice(0,280)+(body.length>280?"...":"");
+          const ideas=partial?[]:body.split(/[.!?]+/).map(x=>x.trim()).filter(x=>x.length>45).slice(0,3);
+          const postId=titleSlug(item.title)||item.canonical_url||String(item.id||Math.random());
+          return{id:s.id+"|"+postId,srcId:s.id,newsletter:s.name,title:item.title||"Sin titulo",author:(item.publishedBylines&&item.publishedBylines[0])?item.publishedBylines[0].name:"",date:fd(item.post_date),rawDate:item.post_date||"",link:item.canonical_url||"#",cat:"Sin categoria",rel:"Medio",area:"",summary,ideas,status:"Nuevo",partial,notes:""};
+        });
       }else{
-        return await fetchViaRss2json(s);
+        const ak=localStorage.getItem("sr-v1-apikey")||"";
+        const reqUrl="https://api.rss2json.com/v1/api.json?"+(ak?"api_key="+ak+"&":"")+"rss_url="+encodeURIComponent(s.url);
+        const r=await fetch(reqUrl);
+        const d=await r.json();
+        if(d.status!=="ok")throw new Error(d.message);
+        const name=d.feed?.title||s.name;
+        setSources(p=>p.map(x=>x.id===s.id?{...x,name}:x));
+        return(d.items||[]).map(item=>{
+          const body=txt(item.content||item.description||"");
+          const partial=body.length<120;
+          const summary=partial?"Contenido parcial. Clic en el titulo para leer completo.":body.slice(0,280)+(body.length>280?"...":"");
+          const ideas=partial?[]:body.split(/[.!?]+/).map(x=>x.trim()).filter(x=>x.length>45).slice(0,3);
+          return{id:s.id+"|"+(titleSlug(item.title)||item.guid||item.link||Math.random()),srcId:s.id,newsletter:name,title:item.title||"Sin titulo",author:item.author||"",date:fd(item.pubDate),rawDate:item.pubDate||"",link:item.link||"#",cat:"Sin categoria",rel:"Medio",area:"",summary,ideas,status:"Nuevo",partial,notes:""};
+        });
       }
     }catch(e){setErrs(p=>({...p,[s.id]:true}));return[];}
   }
@@ -248,27 +332,42 @@ function App(){
     const all=[];
     for(const s of (srcs||sources)){all.push(...await fetchOne(s));setDone(n=>n+1);}
     const anns=getAnns();
-    setPosts(all.map(p=>{const ann=anns[p.id]||{};return{...p,status:ann.status||p.status,notes:ann.notes!==undefined?ann.notes:p.notes,cat:ann.cat||p.cat,rel:ann.rel||p.rel};}).sort((a,b)=>new Date(b.rawDate)-new Date(a.rawDate)));
+    let notionAnns={};
+    const nk=localStorage.getItem(NOTION_KEY)||"";
+    if(nk){try{const r=await fetch("/api/notion?notionKey="+encodeURIComponent(nk));const d=await r.json();if(d.anns){notionAnns=d.anns;for(const[id,a] of Object.entries(d.anns)){if(a._notionPageId)notionPageIds.current[id]=a._notionPageId;}}}catch(e){}}
+    setPosts(all.map(p=>{
+      const ann=anns[p.id]||{};
+      const nan=notionAnns[p.id]||{};
+      return{...p,
+        status:nan.status||ann.status||p.status,
+        notes:nan.notes||ann.notes||p.notes,
+        cat:nan.cat||ann.cat||p.cat,
+        rel:nan.rel||ann.rel||p.rel,
+        area:nan.area||ann.area||p.area,
+      };
+    }).sort((a,b)=>new Date(b.rawDate)-new Date(a.rawDate)));
     setLoading(false);
   }
   useEffect(()=>{loadAll(SRCS);},[]);
   function addSrc(){if(!nurl.trim())return;let u=nurl.trim().split(/[?#]/)[0].replace(/\/$/,"");if(!u.startsWith("http"))u="https://"+u;const m=u.match(/substack\.com\/@([a-zA-Z0-9_-]+)/);const feed=m?"https://"+m[1]+".substack.com/feed":u.endsWith("/feed")?u:u+"/feed";const ns={id:Date.now(),url:feed,name:nurl.trim()};const nx=[...sources,ns];setSources(nx);setNurl("");loadAll(nx);}
   function rmSrc(id){setSources(p=>p.filter(s=>s.id!==id));setPosts(p=>p.filter(x=>x.srcId!==id));}
-  function onSta(id,status){saveAnn(id,{status});setPosts(p=>p.map(x=>x.id===id?{...x,status}:x));}
-  function onNote(id,notes){saveAnn(id,{notes});setPosts(p=>p.map(x=>x.id===id?{...x,notes}:x));}
-  function onCat(id,cat){saveAnn(id,{cat});setPosts(p=>p.map(x=>x.id===id?{...x,cat}:x));}
-  function onRel(id,rel){saveAnn(id,{rel});setPosts(p=>p.map(x=>x.id===id?{...x,rel}:x));}
+  function onSta(id,status){saveAnn(id,{status});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,status}:x);const post=nx.find(x=>x.id===id);if(status==="Guardado")pushToNotion(post,"save");else if(status==="Leido"||status==="Descartado")pushToNotion(post,"remove");return nx;});}
+  function onNote(id,notes){saveAnn(id,{notes});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,notes}:x);const post=nx.find(x=>x.id===id);if(post.status==="Guardado"&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
+  function onCat(id,cat){saveAnn(id,{cat});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,cat}:x);const post=nx.find(x=>x.id===id);if(post.status==="Guardado"&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
+  function onRel(id,rel){saveAnn(id,{rel});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,rel}:x);const post=nx.find(x=>x.id===id);if(post.status==="Guardado"&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
+  function onArea(id,area){saveAnn(id,{area});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,area}:x);const post=nx.find(x=>x.id===id);if(post.status==="Guardado"&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
   const allNL=[...new Set(posts.map(p=>p.newsletter))];
   const visPosts=posts.filter(p=>
     ip(p.rawDate,period)&&
     (fil.cat==="all"||p.cat===fil.cat)&&
+    (fil.area==="all"||p.area===fil.area)&&
     (fil.src==="all"||p.newsletter===fil.src)&&
     (fil.rel==="all"||p.rel===fil.rel)&&
     (fil.sta==="all"||p.status===fil.sta)&&
     (!autoHide||!["Leido","Descartado"].includes(p.status))&&
     (!noteSearch.trim()||[p.title,p.newsletter,p.summary,p.notes].some(f=>norm(f).includes(norm(noteSearch))))
   );
-  const hasFilter=fil.src!=="all"||fil.rel!=="all"||fil.sta!=="Nuevo"||fil.cat!=="all";
+  const hasFilter=fil.src!=="all"||fil.rel!=="all"||fil.sta!=="Nuevo"||fil.cat!=="all"||fil.area!=="all";
   const sb={background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:12,marginBottom:8};
   const StatusCount=({sta})=>{
     const count=posts.filter(p=>p.status===sta&&ip(p.rawDate,period)).length;
@@ -288,9 +387,15 @@ function App(){
         <button onClick={addSrc} style={{width:"100%",fontSize:11,fontWeight:600,border:"1px solid #e2e8f0",borderRadius:6,padding:"5px 0",background:"transparent",color:"#334155"}}>+ Agregar</button>
       </div>
       <div style={sb}>
-        <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:6}}>API KEY RSS2JSON</div>
-        <input defaultValue={localStorage.getItem("sr-v1-apikey")||""} onBlur={e=>{localStorage.setItem("sr-v1-apikey",e.target.value.trim());}} placeholder="Pega tu api_key aqui" style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 6px",color:"#334155",fontFamily:"monospace"}}/>
-        <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>rss2json.com → Dashboard → API key</div>
+        <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:4}}>API KEYS</div>
+        <div style={{fontSize:9,color:"#94a3b8",marginBottom:3}}>RSS2JSON</div>
+        <input defaultValue={localStorage.getItem("sr-v1-apikey")||""} onBlur={e=>{localStorage.setItem("sr-v1-apikey",e.target.value.trim());}} placeholder="rss2json api_key" style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 6px",color:"#334155",fontFamily:"monospace",marginBottom:6}}/>
+        <div style={{fontSize:9,color:"#94a3b8",marginBottom:3}}>CLAUDE (Anthropic)</div>
+        <input defaultValue={localStorage.getItem("sr-v1-claude-key")||""} onBlur={e=>{localStorage.setItem("sr-v1-claude-key",e.target.value.trim());}} placeholder="sk-ant-..." style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 6px",color:"#334155",fontFamily:"monospace"}}/>
+        <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>console.anthropic.com/settings/keys</div>
+        <div style={{fontSize:9,color:"#94a3b8",marginBottom:3,marginTop:8}}>NOTION</div>
+        <input defaultValue={localStorage.getItem(NOTION_KEY)||""} onBlur={e=>{localStorage.setItem(NOTION_KEY,e.target.value.trim());}} placeholder="secret_..." style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 6px",color:"#334155",fontFamily:"monospace"}}/>
+        <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>notion.so/my-integrations → tu token</div>
       </div>
       <div style={sb}>
         <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>FUENTES ({sources.length})</div>
@@ -304,6 +409,16 @@ function App(){
       </div>
       <div style={sb}>
         <CatManager customCats={customCats} onAdd={addCustomCat} onDelete={delCustomCat} onRename={renameCustomCat} fil={fil} setFil={setFil} posts={posts}/>
+      </div>
+      <div style={sb}>
+        <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>AREAS</div>
+        {areas.map((a,i)=>(
+          <div key={a} style={{display:"flex",alignItems:"center",gap:4,marginBottom:5}}>
+            <button onClick={()=>setFil(f=>({...f,area:f.area===a?"all":a}))} style={{fontSize:11,flex:1,textAlign:"left",padding:"4px 8px",borderRadius:6,border:"1px solid "+(fil.area===a?"#0369a1":"#e2e8f0"),background:fil.area===a?"#e0f2fe":"transparent",color:fil.area===a?"#0369a1":"#334155",fontWeight:fil.area===a?700:400}}>{a} <span style={{fontSize:10,opacity:.6}}>({posts.filter(p=>p.area===a).length})</span></button>
+            {i>=DEFAULT_AREAS.length&&<button onClick={()=>delArea(i)} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#fca5a5"}}>\u2715</button>}
+          </div>
+        ))}
+        <AreaInput onAdd={addArea}/>
       </div>
       <div style={sb}>
         <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>FILTROS</div>
@@ -321,7 +436,7 @@ function App(){
             </select>
           </div>
         ))}
-        {hasFilter&&<button onClick={()=>setFil({src:"all",rel:"all",sta:"Nuevo",cat:"all"})} style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:5,padding:"3px 0",background:"transparent",color:"#94a3b8",marginTop:2}}>Restaurar filtros</button>}
+        {hasFilter&&<button onClick={()=>setFil({src:"all",rel:"all",sta:"Nuevo",cat:"all",area:"all"})} style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:5,padding:"3px 0",background:"transparent",color:"#94a3b8",marginTop:2}}>Restaurar filtros</button>}
         <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid #f1f5f9"}}>
           <button onClick={()=>setAutoHide(v=>!v)} style={{width:"100%",fontSize:11,fontWeight:600,padding:"5px 0",borderRadius:6,border:autoHide?"1px solid #0f172a":"1px solid #e2e8f0",background:autoHide?"#0f172a":"transparent",color:autoHide?"#fff":"#64748b",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>{autoHide?"Mostrando activos":"Ocultar leidos/desc."}</button>
         </div>
@@ -372,18 +487,18 @@ function App(){
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
             <div style={{position:"relative",flex:1,maxWidth:340}}>
               <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:13,color:"#94a3b8",pointerEvents:"none"}}>&#128269;</span>
-              <input value={noteSearch} onChange={e=>setNoteSearch(e.target.value)} placeholder="Buscar artículos..." style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:20,padding:"6px 30px 6px 28px",background:"#fff",color:"#334155",outline:"none"}}/>
+              <input value={noteSearch} onChange={e=>setNoteSearch(e.target.value)} placeholder="Buscar art\u00edculos..." style={{width:"100%",fontSize:11,border:"1px solid #e2e8f0",borderRadius:20,padding:"6px 30px 6px 28px",background:"#fff",color:"#334155",outline:"none"}}/>
               {noteSearch&&<button onClick={()=>setNoteSearch("")} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",fontSize:13,color:"#94a3b8",lineHeight:1,padding:0}}>&#10005;</button>}
             </div>
             <span style={{fontSize:11,color:"#94a3b8",whiteSpace:"nowrap"}}>{visPosts.length} art.</span>
           </div>
-          {noteSearch.trim()&&<div style={{fontSize:11,marginBottom:10,color:visPosts.length>0?"#0d9488":"#94a3b8",fontWeight:600}}>{visPosts.length>0?visPosts.length+" artículo"+(visPosts.length!==1?"s":"")+" encontrado"+(visPosts.length!==1?"s":""):"Sin coincidencias para \""+noteSearch+"\""}</div>}
+          {noteSearch.trim()&&<div style={{fontSize:11,marginBottom:10,color:visPosts.length>0?"#0d9488":"#94a3b8",fontWeight:600}}>{visPosts.length>0?visPosts.length+" art\u00edculo"+(visPosts.length!==1?"s":"")+" encontrado"+(visPosts.length!==1?"s":""):"Sin coincidencias para \""+noteSearch+"\"" }</div>}
           {view==="brief"&&<Brief posts={visPosts} customCats={customCats}/>}
           {view==="table"&&(
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10}}>
                 <thead><tr style={{background:"#f1f5f9"}}>
-                  {["Titulo","Fuente","Categoria","Relevancia","Estado","Fecha"].map(h=><th key={h} style={{textAlign:"left",padding:"8px 10px",fontWeight:700,color:"#475569",whiteSpace:"nowrap"}}>{h}</th>)}
+                  {["Titulo","Fuente","Categoria","Area","Relevancia","Estado","Fecha"].map(h=><th key={h} style={{textAlign:"left",padding:"8px 10px",fontWeight:700,color:"#475569",whiteSpace:"nowrap"}}>{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {visPosts.map((p,i)=>(
@@ -391,6 +506,7 @@ function App(){
                       <td style={{padding:"7px 10px",maxWidth:260}}><a href={p.link} target="_blank" rel="noreferrer" style={{color:"#334155",textDecoration:"none",fontWeight:600}}>{p.title}</a></td>
                       <td style={{padding:"7px 10px",color:"#64748b",whiteSpace:"nowrap"}}>{p.newsletter}</td>
                       <td style={{padding:"7px 10px",color:"#6366f1",whiteSpace:"nowrap"}}>{p.cat||"Sin categoria"}</td>
+                      <td style={{padding:"7px 10px",color:"#0369a1",whiteSpace:"nowrap"}}>{p.area||"—"}</td>
                       <td style={{padding:"7px 10px"}}><span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:999,background:RC[p.rel]?.bg,color:RC[p.rel]?.c}}>{p.rel}</span></td>
                       <td style={{padding:"7px 10px"}}><span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:999,background:SC[p.status]?.bg,color:SC[p.status]?.c}}>{p.status}</span></td>
                       <td style={{padding:"7px 10px",color:"#94a3b8",whiteSpace:"nowrap"}}>{p.date}</td>
@@ -403,9 +519,21 @@ function App(){
           )}
           {view==="cards"&&(
             <div>
-              {hasFilter&&<div style={{marginBottom:8}}><button onClick={()=>setFil({src:"all",rel:"all",sta:"Nuevo",cat:"all"})} style={{fontSize:11,padding:"3px 10px",borderRadius:5,border:"1px solid #e2e8f0",background:"transparent",color:"#94a3b8"}}>&#10005; Limpiar filtros</button></div>}
+              {hasFilter&&<div style={{marginBottom:8}}><button onClick={()=>setFil({src:"all",rel:"all",sta:"Nuevo",cat:"all",area:"all"})} style={{fontSize:11,padding:"3px 10px",borderRadius:5,border:"1px solid #e2e8f0",background:"transparent",color:"#94a3b8"}}>&#10005; Limpiar filtros</button></div>}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
                 {visPosts.map(p=>(
-                  <PostCard key={p.id} p={p} onSta={onSta} onNote={onNote} onCat={onCat} onRel={onRel} customCats={customCats} onAddCat={addCustomCat}/>
+                  <PostCard key={p.id} p={p} onSta={onSta} onNote={onNote} onCat={onCat} onRel={onRel} onArea={onArea} customCats={customCats} areas={areas} onAddCat={addCustomCat}/>
                 ))}
-                {visPosts.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",
+                {visPosts.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:40,color:"#94a3b8",fontSize:13}}>Sin resultados con los filtros actuales</div>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("app")).render(<App/>);
+</script>
+</body>
+</html>
