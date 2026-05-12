@@ -222,8 +222,8 @@ function CatManager({customCats,onAdd,onDelete,onRename,fil,setFil,posts}){
             ):(
               <>
                 <button onClick={()=>setFil(f=>({...f,cat:f.cat===c?"all":c}))} style={{fontSize:11,flex:1,textAlign:"left",padding:"4px 8px",borderRadius:6,border:"1px solid "+(fil.cat===c?"#6366f1":"#e2e8f0"),background:fil.cat===c?"#ede9fe":"transparent",color:fil.cat===c?"#6d28d9":"#334155",fontWeight:fil.cat===c?700:400}}>{c} <span style={{fontSize:10,opacity:.6}}>({count})</span></button>
-                <button onClick={()=>{setRenaming(i);setRenameDraft(c);}} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#cbd5e1"}}>\u270e</button>
-                <button onClick={()=>onDelete(i)} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#fca5a5"}}>\u2715</button>
+                <button onClick={()=>{setRenaming(i);setRenameDraft(c);}} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#cbd5e1"}}>{'✎'}</button>
+                <button onClick={()=>onDelete(i)} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#fca5a5"}}>{'✕'}</button>
               </>
             )}
           </div>
@@ -415,7 +415,7 @@ function App(){
         {areas.map((a,i)=>(
           <div key={a} style={{display:"flex",alignItems:"center",gap:4,marginBottom:5}}>
             <button onClick={()=>setFil(f=>({...f,area:f.area===a?"all":a}))} style={{fontSize:11,flex:1,textAlign:"left",padding:"4px 8px",borderRadius:6,border:"1px solid "+(fil.area===a?"#0369a1":"#e2e8f0"),background:fil.area===a?"#e0f2fe":"transparent",color:fil.area===a?"#0369a1":"#334155",fontWeight:fil.area===a?700:400}}>{a} <span style={{fontSize:10,opacity:.6}}>({posts.filter(p=>p.area===a).length})</span></button>
-            {i>=DEFAULT_AREAS.length&&<button onClick={()=>delArea(i)} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#fca5a5"}}>\u2715</button>}
+            {i>=DEFAULT_AREAS.length&&<button onClick={()=>delArea(i)} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#fca5a5"}}>{'✕'}</button>}
           </div>
         ))}
         <AreaInput onAdd={addArea}/>
@@ -522,18 +522,4 @@ function App(){
               {hasFilter&&<div style={{marginBottom:8}}><button onClick={()=>setFil({src:"all",rel:"all",sta:"Nuevo",cat:"all",area:"all"})} style={{fontSize:11,padding:"3px 10px",borderRadius:5,border:"1px solid #e2e8f0",background:"transparent",color:"#94a3b8"}}>&#10005; Limpiar filtros</button></div>}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
                 {visPosts.map(p=>(
-                  <PostCard key={p.id} p={p} onSta={onSta} onNote={onNote} onCat={onCat} onRel={onRel} onArea={onArea} customCats={customCats} areas={areas} onAddCat={addCustomCat}/>
-                ))}
-                {visPosts.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:40,color:"#94a3b8",fontSize:13}}>Sin resultados con los filtros actuales</div>}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-ReactDOM.createRoot(document.getElementById("app")).render(<App/>);
-</script>
-</body>
-</html>
+                  <PostCard key={p.id} p={p} onS
