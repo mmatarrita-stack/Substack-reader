@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const DB_ID = 'd634f72e74fe82b48dea01baef2695ae';
+  const DB_ID = '07f4f72e74fe8328b5e30148a94e2cac';
   const NOTION_VER = '2022-06-28';
 
   const notionKey = req.method === 'GET'
