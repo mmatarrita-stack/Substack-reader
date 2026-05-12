@@ -97,12 +97,12 @@ export default async function handler(req, res) {
       'Post ID':       { title:      [{ text: { content: postId } }] },
       'Título':        { rich_text:  [{ text: { content: (title || '').slice(0, 2000) } }] },
       'Newsletter':    { rich_text:  [{ text: { content: (newsletter || '').slice(0, 500) } }] },
-      'Link':          { url: link || null },
+      'Link':          { url: (link && link !== '#') ? link : null },
       'Fecha artículo':{ rich_text:  [{ text: { content: date || '' } }] },
       'Notas':         { rich_text:  [{ text: { content: (notes || '').slice(0, 2000) } }] },
     };
     if (rel)                        props['Relevancia'] = { select: { name: rel } };
-    if (cat) props['Categoría'] = { select: { name: cat } };
+    if (cat && cat !== 'Sin categoria') props['Categoría'] = { select: { name: cat } };
     if (area)                       props['Área']      = { select: { name: area } };
     props['Estado'] = { select: { name: 'Guardado' } };
 
