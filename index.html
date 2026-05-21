@@ -255,7 +255,7 @@ function App(){
   const[done,setDone]=useState(0);
   const[errs,setErrs]=useState({});
   const[view,setView]=useState("brief");
-  const[period,setPeriod]=useState("cur");
+  const[period,setPeriod]=useState("all");
   const[nurl,setNurl]=useState("");
   const[fil,setFil]=useState({src:"all",rel:"all",sta:"Nuevo",cat:"all",area:"all"});
   const[autoHide,setAutoHide]=useState(false);
@@ -263,6 +263,8 @@ function App(){
   const[customCats,setCustomCats]=useState(()=>getCustomCats());
   const[areas,setAreas]=useState(()=>getAreas());
   const[noteSearch,setNoteSearch]=useState("");
+  const[apiOpen,setApiOpen]=useState(false);
+  const[srcOpen,setSrcOpen]=useState(false);
   function addCustomCat(name){if(customCats.includes(name))return;const n=[...customCats,name];setCustomCats(n);saveCustomCats(n);}
   function delCustomCat(i){const n=customCats.filter((_,idx)=>idx!==i);setCustomCats(n);saveCustomCats(n);}
   function renameCustomCat(i,name){if(!name.trim())return;const n=customCats.map((c,idx)=>idx===i?name.trim():c);setCustomCats(n);saveCustomCats(n);}
@@ -294,6 +296,7 @@ function App(){
   }
   function addArea(name){if(!name.trim()||areas.includes(name.trim()))return;const n=[...areas,name.trim()];setAreas(n);saveAreas(n);}
   function delArea(i){const n=areas.filter((_,idx)=>idx!==i);setAreas(n);saveAreas(n);}
+  function clearReadDiscarded(){const toRemove=posts.filter(p=>p.status==="Leido"||p.status==="Descartado");const anns=getAnns();for(const p of toRemove){delete anns[p.id];}localStorage.setItem(ANN_KEY,JSON.stringify(anns));setPosts(p=>p.filter(x=>x.status!=="Leido"&&x.status!=="Descartado"));}
   async function fetchOne(s){
     try{
       const isSubstack=s.url.includes("substack.com");
@@ -391,25 +394,9 @@ function App(){
         <button onClick={addSrc} style={{width:"100%",fontSize:11,fontWeight:600,border:"1px solid #e2e8f0",borderRadius:6,padding:"5px 0",background:"transparent",color:"#334155"}}>+ Agregar</button>
       </div>
       <div style={sb}>
-        <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:4}}>API KEYS</div>
-        <div style={{fontSize:9,color:"#94a3b8",marginBottom:3}}>RSS2JSON</div>
-        <input defaultValue={localStorage.getItem("sr-v1-apikey")||""} onBlur={e=>{localStorage.setItem("sr-v1-apikey",e.target.value.trim());}} placeholder="rss2json api_key" style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 6px",color:"#334155",fontFamily:"monospace",marginBottom:6}}/>
-        <div style={{fontSize:9,color:"#94a3b8",marginBottom:3}}>CLAUDE (Anthropic)</div>
-        <input defaultValue={localStorage.getItem("sr-v1-claude-key")||""} onBlur={e=>{localStorage.setItem("sr-v1-claude-key",e.target.value.trim());}} placeholder="sk-ant-..." style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 6px",color:"#334155",fontFamily:"monospace"}}/>
-        <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>console.anthropic.com/settings/keys</div>
-        <div style={{fontSize:9,color:"#94a3b8",marginBottom:3,marginTop:8}}>NOTION</div>
-        <input defaultValue={localStorage.getItem(NOTION_KEY)||""} onBlur={e=>{localStorage.setItem(NOTION_KEY,e.target.value.trim());}} placeholder="secret_..." style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 6px",color:"#334155",fontFamily:"monospace"}}/>
-        <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>notion.so/my-integrations → tu token</div>
-      </div>
-      <div style={sb}>
-        <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>FUENTES ({sources.length})</div>
-        {sources.map(s=>(
-          <div key={s.id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-            <span style={{width:7,height:7,borderRadius:"50%",flexShrink:0,background:errs[s.id]?"#f87171":loading?"#fbbf24":"#34d399"}}/>
-            <span style={{fontSize:11,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#334155"}}>{s.name}</span>
-            <button onClick={()=>rmSrc(s.id)} style={{background:"none",border:"none",color:"#cbd5e1",fontSize:12,padding:0,lineHeight:1}}>x</button>
-          </div>
-        ))}
+        <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:6}}>ESTADO (click para filtrar)</div>
+        {STATES.map(s=><StatusCount key={s} sta={s}/>)}
+        <button onClick={clearReadDiscarded} style={{width:"100%",fontSize:10,marginTop:6,padding:"3px 0",borderRadius:5,border:"1px solid #fee2e2",background:"#fff5f5",color:"#b91c1c",cursor:"pointer"}}>Limpiar Leídos/Desc.</button>
       </div>
       <div style={sb}>
         <CatManager customCats={customCats} onAdd={addCustomCat} onDelete={delCustomCat} onRename={renameCustomCat} fil={fil} setFil={setFil} posts={posts}/>
@@ -446,8 +433,35 @@ function App(){
         </div>
       </div>
       <div style={sb}>
-        <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:6}}>ESTADO (click para filtrar)</div>
-        {STATES.map(s=><StatusCount key={s} sta={s}/>)}
+        <div onClick={()=>setSrcOpen(v=>!v)} style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:srcOpen?8:0,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span>FUENTES ({sources.length})</span>
+          <span style={{fontSize:9}}>{srcOpen?"▼":"▶"}</span>
+        </div>
+        {srcOpen&&sources.map(s=>(
+          <div key={s.id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+            <span style={{width:7,height:7,borderRadius:"50%",flexShrink:0,background:errs[s.id]?"#f87171":loading?"#fbbf24":"#34d399"}}/>
+            <span style={{fontSize:11,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#334155"}}>{s.name}</span>
+            <button onClick={()=>rmSrc(s.id)} style={{background:"none",border:"none",color:"#cbd5e1",fontSize:12,padding:0,lineHeight:1}}>x</button>
+          </div>
+        ))}
+      </div>
+      <div style={sb}>
+        <div onClick={()=>setApiOpen(v=>!v)} style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:apiOpen?4:0,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span>API KEYS</span>
+          <span style={{fontSize:9}}>{apiOpen?"▼":"▶"}</span>
+        </div>
+        {apiOpen&&(
+          <>
+            <div style={{fontSize:9,color:"#94a3b8",marginBottom:3}}>RSS2JSON</div>
+            <input defaultValue={localStorage.getItem("sr-v1-apikey")||""} onBlur={e=>{localStorage.setItem("sr-v1-apikey",e.target.value.trim());}} placeholder="rss2json api_key" style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 6px",color:"#334155",fontFamily:"monospace",marginBottom:6}}/>
+            <div style={{fontSize:9,color:"#94a3b8",marginBottom:3}}>CLAUDE (Anthropic)</div>
+            <input defaultValue={localStorage.getItem("sr-v1-claude-key")||""} onBlur={e=>{localStorage.setItem("sr-v1-claude-key",e.target.value.trim());}} placeholder="sk-ant-..." style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 6px",color:"#334155",fontFamily:"monospace"}}/>
+            <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>console.anthropic.com/settings/keys</div>
+            <div style={{fontSize:9,color:"#94a3b8",marginBottom:3,marginTop:8}}>NOTION</div>
+            <input defaultValue={localStorage.getItem(NOTION_KEY)||""} onBlur={e=>{localStorage.setItem(NOTION_KEY,e.target.value.trim());}} placeholder="secret_..." style={{width:"100%",fontSize:10,border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 6px",color:"#334155",fontFamily:"monospace"}}/>
+            <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>notion.so/my-integrations → tu token</div>
+          </>
+        )}
       </div>
     </div>
   );
