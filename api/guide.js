@@ -10,39 +10,50 @@ export default async function handler(req, res) {
   if (!category || !posts?.length) return res.status(400).json({ error: 'Categoría y artículos requeridos.' });
 
   const postList = posts.map((p, i) =>
-    `${i + 1}. "${p.title}" — ${p.newsletter}\n   ${p.link}`
-  ).join('\n\n');
+    `${i + 1}. "${p.title}" — ${p.newsletter}`
+  ).join('\n');
 
-  const prompt = `Eres un experto en síntesis de conocimiento. El usuario recopiló ${posts.length} artículos sobre "${category}".
+  const prompt = `Eres un editor experto en síntesis de conocimiento. El usuario recopiló ${posts.length} artículos sobre "${category}".
 
-Basándote ÚNICAMENTE en los títulos de estos artículos, crea una guía de referencia en español con citas inline.
+Tu misión: crear una GUÍA NARRATIVA en español — no una lista de viñetas, sino un documento con voz editorial, coherencia temática y flujo de lectura real.
 
-Artículos recopilados (usa el número como cita):
+Artículos disponibles (cítalos con [N] inline):
 ${postList}
 
-REGLA DE CITAS: Después de cada afirmación importante en Patrones, Principios y Cómo Aplicarlo, añade [N] donde N es el número del artículo que respalda esa idea. Puedes citar varios: [2][5]. Solo cita cuando el artículo específico respalda directamente la afirmación.
+REGLA DE CITAS: Inserta [N] inmediatamente después de la afirmación que respalda ese artículo. Puedes citar varios seguidos: [2][7]. Cita solo cuando el artículo respalda directamente lo dicho.
 
-Genera la guía con EXACTAMENTE estas secciones usando ## como encabezados:
+FORMATO OBLIGATORIO:
+- Usa ## para cada título de sección
+- Los títulos deben ser EVOCADORES y propios del tema (ej: "La Paradoja de la Visibilidad" — nunca "Patrón 1" ni "Principio Clave")
+- Escribe en PROSA FLUIDA, sin viñetas ni listas numeradas dentro de las secciones
+- Cada sección tiene 2-4 párrafos narrativos que conectan ideas de múltiples artículos
+- Las secciones se conectan entre sí (referencia ideas anteriores cuando sea útil)
 
-## Tema Central
-[2-3 oraciones sobre el hilo conductor. Incluye citas [N] a los artículos más representativos.]
+ESTRUCTURA (adapta los títulos al contenido real):
 
-## Patrones Identificados
-[3-5 patrones recurrentes. Cada patrón debe terminar con su cita [N].]
+## Panorama General
+[1-2 párrafos que establezcan el hilo conductor de esta colección de artículos. ¿Qué tensión o pregunta central recorre todos estos textos? Cita [N] los artículos más representativos.]
 
-## Principios Clave
-[4-6 principios accionables. Cada principio debe terminar con su cita [N].]
+## [Título evocador del primer gran insight — ej: "La Paradoja de la Visibilidad"]
+[2-3 párrafos que desarrollen este insight con profundidad. Conecta ideas de artículos distintos. Incluye citas [N].]
+
+## [Título del segundo insight — ej: "Tu Voz Como Activo No Negociable"]
+[ídem]
+
+## [Título del tercer insight — si hay material suficiente]
+[ídem]
+
+## [Título del cuarto insight — solo si aplica]
+[ídem]
 
 ## Cómo Aplicarlo
-[3-4 aplicaciones concretas. Cada una con cita [N] al artículo de origen.]
+[2-3 párrafos narrativos con las implicaciones prácticas más importantes. Sin listas. Con citas [N]. ¿Qué debería hacer alguien que leyó esto?]
 
-## Fuentes Recomendadas
-[Lista TODOS los artículos que hayas citado con [N] en las secciones anteriores. Formato:
-• [N] Título — Newsletter
-  🔗 link
-Si citaste todos los artículos de la lista, inclúyelos todos aquí.]
+## Fuentes
+[Lista TODOS los artículos citados anteriormente, uno por línea:
+• [N] Título — Newsletter]
 
-Sé concreto y específico para "${category}". Evita frases genéricas.`;
+Sé concreto, evocador y específico para "${category}". El resultado debe sentirse como una pieza editorial de calidad, no como un resumen escolar.`;
 
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
