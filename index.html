@@ -600,9 +600,8 @@ function App(){
           )}
         </div>
       </div>
-    </div>
     {guideModal&&<GuideModal modal={guideModal} onClose={()=>setGuideModal(null)} onRegen={generateGuide} onNotion={pushGuideToNotion} guides={guides}/>}
-  </div>
+    </div>
   );
 }
 ReactDOM.createRoot(document.getElementById("app")).render(<App/>);
