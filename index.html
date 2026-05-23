@@ -259,10 +259,12 @@ function AreaInput({onAdd}){
   );
 }
 function renderWithCitations(text,posts){const parts=text.split(/(https?:\/\/\S+|\[\d+\])/);return parts.map((part,i)=>{if(part.match(/^https?:\/\//))return <a key={i} href={part} target="_blank" rel="noreferrer" style={{color:"#6366f1",fontWeight:600,textDecoration:"none"}}>Link ↗</a>;const cm=part.match(/^\[(\d+)\]$/);if(cm){const idx=parseInt(cm[1])-1;const post=posts&&posts[idx];if(post)return <a key={i} href={post.link} target="_blank" rel="noreferrer" title={post.title} style={{display:"inline-flex",alignItems:"center",color:"#6d28d9",fontWeight:700,textDecoration:"none",fontSize:"0.75em",verticalAlign:"super",background:"#ede9fe",padding:"1px 4px",borderRadius:3,marginLeft:2,lineHeight:1.5}}>{cm[1]}</a>;}return part;});}
-function GuideModal({modal,onClose,onRegen,onNotion,guides}){
+function GuideModal({modal,onClose,onRegen,onNotion,guides,onDiscardPost}){
   const[notionStatus,setNotionStatus]=useState("");
+  const[showSources,setShowSources]=useState(false);
   const g=guides[modal.cat]||{};
   const text=modal.text||(g.text||"");
+  const sourcePosts=g.posts||[];
   async function handleNotion(){setNotionStatus("Guardando...");const r=await onNotion(modal.cat,text,g.count||0);setNotionStatus(r&&r.ok?"✓ Guardado en Notion":r&&r.error?r.error:"Error");}
   const sections=parseAnalysis(text);
   const hasNotion=!!localStorage.getItem(NOTION_KEY);
@@ -273,12 +275,29 @@ function GuideModal({modal,onClose,onRegen,onNotion,guides}){
           <span style={{fontSize:14,fontWeight:800,color:"#0f172a"}}>📖 Guía: {modal.cat}</span>
           <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",fontSize:20,color:"#94a3b8",lineHeight:1,cursor:"pointer",padding:"0 2px"}}>&#10005;</button>
         </div>
-        {g.ts&&<div style={{fontSize:10,color:"#94a3b8",marginTop:6,marginBottom:10}}>{g.count} artículos · Generada {g.ts}</div>}
-        <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        {g.ts&&<div style={{fontSize:10,color:"#94a3b8",marginTop:6,marginBottom:10}}>{sourcePosts.length||g.count} artículos · Generada {g.ts}</div>}
+        <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
           <button onClick={()=>onRegen(modal.cat)} disabled={modal.loading} style={{fontSize:11,fontWeight:600,padding:"5px 12px",borderRadius:6,border:"1px solid #6366f1",background:modal.loading?"#f1f5f9":"transparent",color:modal.loading?"#94a3b8":"#6366f1",cursor:modal.loading?"default":"pointer"}}>{modal.loading?"Generando...":"↻ Regenerar"}</button>
-          <button onClick={()=>text&&navigator.clipboard.writeText(text)} disabled={!text} style={{fontSize:11,fontWeight:600,padding:"5px 12px",borderRadius:6,border:"1px solid #e2e8f0",background:"transparent",color:"#64748b",cursor:text?"pointer":"default"}}>📋 Copiar</button>
-          {hasNotion&&<button onClick={handleNotion} disabled={!text||modal.loading} style={{fontSize:11,fontWeight:600,padding:"5px 12px",borderRadius:6,border:"1px solid #0f172a",background:"transparent",color:"#0f172a",cursor:text&&!modal.loading?"pointer":"default"}}>{notionStatus||"↗ Guardar en Notion"}</button>}
+          <button onClick={()=>setShowSources(v=>!v)} style={{fontSize:11,fontWeight:600,padding:"5px 12px",borderRadius:6,border:"1px solid "+(showSources?"#0369a1":"#e2e8f0"),background:showSources?"#e0f2fe":"transparent",color:showSources?"#0369a1":"#64748b"}}>{"📋 "+(sourcePosts.length)+" fuentes"}</button>
+          <button onClick={()=>text&&navigator.clipboard.writeText(text)} disabled={!text} style={{fontSize:11,fontWeight:600,padding:"5px 12px",borderRadius:6,border:"1px solid #e2e8f0",background:"transparent",color:"#64748b",cursor:text?"pointer":"default"}}>Copiar</button>
+          {hasNotion&&<button onClick={handleNotion} disabled={!text||modal.loading} style={{fontSize:11,fontWeight:600,padding:"5px 12px",borderRadius:6,border:"1px solid #0f172a",background:"transparent",color:"#0f172a",cursor:text&&!modal.loading?"pointer":"default"}}>{notionStatus||"↗ Notion"}</button>}
         </div>
+        {showSources&&(
+          <div style={{background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:8,padding:10,marginBottom:12}}>
+            <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>ARTÍCULOS INCLUIDOS — Eliminar descarta el artículo de la vista principal</div>
+            {sourcePosts.map((post,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"flex-start",gap:6,marginBottom:5,paddingBottom:5,borderBottom:"1px solid #f1f5f9"}}>
+                <span style={{fontSize:10,fontWeight:700,color:"#6d28d9",background:"#ede9fe",padding:"1px 5px",borderRadius:3,flexShrink:0,marginTop:2}}>{i+1}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <a href={post.link} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#334155",textDecoration:"none",lineHeight:1.3,display:"block"}}>{post.title}</a>
+                  <div style={{fontSize:10,color:"#94a3b8"}}>{post.newsletter}</div>
+                </div>
+                <button onClick={()=>onDiscardPost&&onDiscardPost(modal.cat,post)} title="Descartar y quitar de guía" style={{background:"none",border:"none",color:"#fca5a5",fontSize:15,padding:"0 2px",cursor:"pointer",flexShrink:0,lineHeight:1}}>&#10005;</button>
+              </div>
+            ))}
+            {sourcePosts.length>0&&<div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>Después de eliminar fuentes, usa ↻ Regenerar para actualizar la guía.</div>}
+          </div>
+        )}
         {modal.loading&&(
           <div style={{textAlign:"center",padding:"40px 0",fontSize:12,color:"#94a3b8"}}>
             <div style={{fontSize:28,marginBottom:10}}>&#9889;</div>
@@ -356,6 +375,7 @@ function App(){
   function clearReadDiscarded(){const toRemove=posts.filter(p=>p.status==="Leido"||p.status==="Descartado");addToBlacklist(toRemove.map(p=>p.id));const anns=getAnns();for(const p of toRemove){delete anns[p.id];}localStorage.setItem(ANN_KEY,JSON.stringify(anns));setPosts(p=>p.filter(x=>x.status!=="Leido"&&x.status!=="Descartado"));}
   function openGuide(cat){const existing=guides[cat];if(existing&&existing.text){setGuideModal({cat,text:existing.text,loading:false,error:""});}else{generateGuide(cat);}}
   async function generateGuide(cat){const catPosts=posts.filter(p=>p.cat===cat);if(!catPosts.length)return;setGuideModal({cat,text:"",loading:true,error:"",count:catPosts.length});try{const claudeKey=localStorage.getItem("sr-v1-claude-key")||"";const r=await fetch("/api/guide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apiKey:claudeKey,category:cat,posts:catPosts.map(p=>({title:p.title,newsletter:p.newsletter,link:p.link}))})});const d=await r.json();if(d.error)throw new Error(d.error);const guideData={text:d.guide,ts:new Date().toLocaleDateString("es-MX"),count:catPosts.length,posts:catPosts.map(p=>({title:p.title,link:p.link,newsletter:p.newsletter}))};saveGuide(cat,guideData);setGuides(g=>({...g,[cat]:guideData}));setGuideModal({cat,text:d.guide,loading:false,error:""});}catch(e){setGuideModal(m=>({...m,loading:false,error:e.message}));}}
+  function discardFromGuide(cat,post){const p=posts.find(x=>x.link===post.link);if(p)onSta(p.id,"Descartado");const g=guides[cat]||{};const newPosts=(g.posts||[]).filter(x=>x.link!==post.link);const updated={...g,posts:newPosts};saveGuide(cat,updated);setGuides(prev=>({...prev,[cat]:updated}));}
   async function pushGuideToNotion(cat,guideText,count){const nk=localStorage.getItem(NOTION_KEY)||"";if(!nk)return{error:"Sin token de Notion"};try{const r=await fetch("/api/notion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({notionKey:nk,action:"saveGuide",category:cat,guideText,count,guideNotionPageId:guideNotionIds.current[cat]||null})});const d=await r.json();if(d.error)throw new Error(d.error);if(d.guideNotionPageId)guideNotionIds.current[cat]=d.guideNotionPageId;return{ok:true};}catch(e){return{error:e.message};}}
   async function fetchOne(s){
     try{
@@ -626,7 +646,7 @@ function App(){
           )}
         </div>
       </div>
-    {guideModal&&<GuideModal modal={guideModal} onClose={()=>setGuideModal(null)} onRegen={generateGuide} onNotion={pushGuideToNotion} guides={guides}/>}
+    {guideModal&&<GuideModal modal={guideModal} onClose={()=>setGuideModal(null)} onRegen={generateGuide} onNotion={pushGuideToNotion} guides={guides} onDiscardPost={discardFromGuide}/>}
     </div>
   );
 }

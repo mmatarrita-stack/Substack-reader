@@ -37,9 +37,10 @@ Genera la guía con EXACTAMENTE estas secciones usando ## como encabezados:
 [3-4 aplicaciones concretas. Cada una con cita [N] al artículo de origen.]
 
 ## Fuentes Recomendadas
-[Los 5 artículos más relevantes, en formato:
-• Título — Newsletter [N]
-  🔗 link]
+[Lista TODOS los artículos que hayas citado con [N] en las secciones anteriores. Formato:
+• [N] Título — Newsletter
+  🔗 link
+Si citaste todos los artículos de la lista, inclúyelos todos aquí.]
 
 Sé concreto y específico para "${category}". Evita frases genéricas.`;
 
@@ -53,7 +54,7 @@ Sé concreto y específico para "${category}". Evita frases genéricas.`;
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1800,
+        max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
