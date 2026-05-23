@@ -15,31 +15,33 @@ export default async function handler(req, res) {
 
   const prompt = `Eres un experto en síntesis de conocimiento. El usuario recopiló ${posts.length} artículos sobre "${category}".
 
-Basándote ÚNICAMENTE en los títulos de estos artículos, crea una guía de referencia en español.
+Basándote ÚNICAMENTE en los títulos de estos artículos, crea una guía de referencia en español con citas inline.
 
-Artículos recopilados:
+Artículos recopilados (usa el número como cita):
 ${postList}
+
+REGLA DE CITAS: Después de cada afirmación importante en Patrones, Principios y Cómo Aplicarlo, añade [N] donde N es el número del artículo que respalda esa idea. Puedes citar varios: [2][5]. Solo cita cuando el artículo específico respalda directamente la afirmación.
 
 Genera la guía con EXACTAMENTE estas secciones usando ## como encabezados:
 
 ## Tema Central
-[2-3 oraciones sobre el hilo conductor que conecta estos artículos]
+[2-3 oraciones sobre el hilo conductor. Incluye citas [N] a los artículos más representativos.]
 
 ## Patrones Identificados
-[3-5 patrones o temas recurrentes que emergen de estos títulos]
+[3-5 patrones recurrentes. Cada patrón debe terminar con su cita [N].]
 
 ## Principios Clave
-[4-6 principios accionables que se pueden extraer de esta colección]
+[4-6 principios accionables. Cada principio debe terminar con su cita [N].]
 
 ## Cómo Aplicarlo
-[3-4 formas concretas de usar este conocimiento en proyectos reales]
+[3-4 aplicaciones concretas. Cada una con cita [N] al artículo de origen.]
 
 ## Fuentes Recomendadas
-[Los 5 artículos más relevantes con su vínculo, en formato:
-• Título — Newsletter
+[Los 5 artículos más relevantes, en formato:
+• Título — Newsletter [N]
   🔗 link]
 
-Sé concreto, accionable y específico para "${category}". Evita frases genéricas.`;
+Sé concreto y específico para "${category}". Evita frases genéricas.`;
 
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
