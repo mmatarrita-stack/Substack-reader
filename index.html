@@ -18,6 +18,9 @@ const CATS_KEY="sr-v1-custom-cats";
 const AREAS_KEY="sr-v1-areas";
 const ANALYSES_KEY="sr-v1-analyses";
 const NOTION_KEY="sr-v1-notion-key";
+const GUIDES_KEY="sr-v1-guides";
+function getGuides(){try{return JSON.parse(localStorage.getItem(GUIDES_KEY)||"{}");}catch(e){return{};}}
+function saveGuide(cat,data){try{const g=getGuides();g[cat]=data;localStorage.setItem(GUIDES_KEY,JSON.stringify(g));}catch(e){}}
 function getAnns(){try{return JSON.parse(localStorage.getItem(ANN_KEY)||"{}");}catch(e){return{};}}
 function saveAnn(id,data){try{const a=getAnns();localStorage.setItem(ANN_KEY,JSON.stringify({...a,[id]:{...a[id],...data}}));}catch(e){}}
 function getAnalyses(){try{return JSON.parse(localStorage.getItem(ANALYSES_KEY)||"{}");}catch(e){return{};}}
@@ -200,7 +203,7 @@ function Brief({posts,customCats}){
     </div>
   );
 }
-function CatManager({customCats,onAdd,onDelete,onRename,fil,setFil,posts}){
+function CatManager({customCats,onAdd,onDelete,onRename,fil,setFil,posts,onGuide,guides}){
   const[newCat,setNewCat]=useState("");
   const[renaming,setRenaming]=useState(null);
   const[renameDraft,setRenameDraft]=useState("");
@@ -223,6 +226,7 @@ function CatManager({customCats,onAdd,onDelete,onRename,fil,setFil,posts}){
               <>
                 <button onClick={()=>setFil(f=>({...f,cat:f.cat===c?"all":c}))} style={{fontSize:11,flex:1,textAlign:"left",padding:"4px 8px",borderRadius:6,border:"1px solid "+(fil.cat===c?"#6366f1":"#e2e8f0"),background:fil.cat===c?"#ede9fe":"transparent",color:fil.cat===c?"#6d28d9":"#334155",fontWeight:fil.cat===c?700:400}}>{c} <span style={{fontSize:10,opacity:.6}}>({count})</span></button>
                 <button onClick={()=>{setRenaming(i);setRenameDraft(c);}} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#cbd5e1"}}>{'✎'}</button>
+                <button onClick={()=>onGuide&&onGuide(c)} title="Generar guía" style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:guides&&guides[c]?"#6366f1":"#cbd5e1",cursor:"pointer"}}>📖</button>
                 <button onClick={()=>onDelete(i)} style={{fontSize:11,padding:"2px 4px",background:"none",border:"none",color:"#fca5a5"}}>{'✕'}</button>
               </>
             )}
@@ -247,6 +251,48 @@ function AreaInput({onAdd}){
     </div>
   );
 }
+function GuideModal({modal,onClose,onRegen,onNotion,guides}){
+  const[notionStatus,setNotionStatus]=useState("");
+  const g=guides[modal.cat]||{};
+  const text=modal.text||(g.text||"");
+  async function handleNotion(){setNotionStatus("Guardando...");const r=await onNotion(modal.cat,text,g.count||0);setNotionStatus(r&&r.ok?"✓ Guardado en Notion":r&&r.error?r.error:"Error");}
+  const sections=parseAnalysis(text);
+  const hasNotion=!!localStorage.getItem(NOTION_KEY);
+  return(
+    <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,zIndex:300,display:"flex",alignItems:"flex-start",justifyContent:"center",background:"rgba(15,23,42,0.6)",padding:"20px 12px",overflowY:"auto"}}>
+      <div style={{background:"#fff",borderRadius:14,padding:20,width:"100%",maxWidth:680,position:"relative",marginTop:10,marginBottom:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,paddingBottom:10,borderBottom:"1px solid #f1f5f9"}}>
+          <span style={{fontSize:14,fontWeight:800,color:"#0f172a"}}>📖 Guía: {modal.cat}</span>
+          <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",fontSize:20,color:"#94a3b8",lineHeight:1,cursor:"pointer",padding:"0 2px"}}>&#10005;</button>
+        </div>
+        {g.ts&&<div style={{fontSize:10,color:"#94a3b8",marginTop:6,marginBottom:10}}>{g.count} artículos · Generada {g.ts}</div>}
+        <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+          <button onClick={()=>onRegen(modal.cat)} disabled={modal.loading} style={{fontSize:11,fontWeight:600,padding:"5px 12px",borderRadius:6,border:"1px solid #6366f1",background:modal.loading?"#f1f5f9":"transparent",color:modal.loading?"#94a3b8":"#6366f1",cursor:modal.loading?"default":"pointer"}}>{modal.loading?"Generando...":"↻ Regenerar"}</button>
+          <button onClick={()=>text&&navigator.clipboard.writeText(text)} disabled={!text} style={{fontSize:11,fontWeight:600,padding:"5px 12px",borderRadius:6,border:"1px solid #e2e8f0",background:"transparent",color:"#64748b",cursor:text?"pointer":"default"}}>📋 Copiar</button>
+          {hasNotion&&<button onClick={handleNotion} disabled={!text||modal.loading} style={{fontSize:11,fontWeight:600,padding:"5px 12px",borderRadius:6,border:"1px solid #0f172a",background:"transparent",color:"#0f172a",cursor:text&&!modal.loading?"pointer":"default"}}>{notionStatus||"↗ Guardar en Notion"}</button>}
+        </div>
+        {modal.loading&&(
+          <div style={{textAlign:"center",padding:"40px 0",fontSize:12,color:"#94a3b8"}}>
+            <div style={{fontSize:28,marginBottom:10}}>&#9889;</div>
+            Sintetizando {modal.count} artículos con Claude...
+          </div>
+        )}
+        {modal.error&&<div style={{background:"#fee2e2",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#b91c1c",marginBottom:10}}>❌ {modal.error}</div>}
+        {!modal.loading&&!modal.error&&sections.length===0&&text&&<div style={{fontSize:12,color:"#334155",lineHeight:1.7,whiteSpace:"pre-wrap",padding:"8px 0"}}>{text}</div>}
+        {!modal.loading&&sections.length>0&&(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {sections.map((sec,i)=>{const col=secColor(sec.title);return(
+              <div key={i} style={{background:col.bg,border:"1px solid "+col.border,borderRadius:8,padding:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:col.title,marginBottom:6,textTransform:"uppercase",letterSpacing:.5}}>{sec.title}</div>
+                <div style={{fontSize:12,color:"#334155",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{sec.content}</div>
+              </div>
+            );})}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 function App(){
   const isMobile=useIsMobile();
   const[sources,setSources]=useState(SRCS);
@@ -265,6 +311,9 @@ function App(){
   const[noteSearch,setNoteSearch]=useState("");
   const[apiOpen,setApiOpen]=useState(false);
   const[srcOpen,setSrcOpen]=useState(false);
+  const[guides,setGuides]=useState(()=>getGuides());
+  const[guideModal,setGuideModal]=useState(null);
+  const guideNotionIds=React.useRef({});
   function addCustomCat(name){if(customCats.includes(name))return;const n=[...customCats,name];setCustomCats(n);saveCustomCats(n);}
   function delCustomCat(i){const n=customCats.filter((_,idx)=>idx!==i);setCustomCats(n);saveCustomCats(n);}
   function renameCustomCat(i,name){if(!name.trim())return;const n=customCats.map((c,idx)=>idx===i?name.trim():c);setCustomCats(n);saveCustomCats(n);}
@@ -297,6 +346,9 @@ function App(){
   function addArea(name){if(!name.trim()||areas.includes(name.trim()))return;const n=[...areas,name.trim()];setAreas(n);saveAreas(n);}
   function delArea(i){const n=areas.filter((_,idx)=>idx!==i);setAreas(n);saveAreas(n);}
   function clearReadDiscarded(){const toRemove=posts.filter(p=>p.status==="Leido"||p.status==="Descartado");const anns=getAnns();for(const p of toRemove){delete anns[p.id];}localStorage.setItem(ANN_KEY,JSON.stringify(anns));setPosts(p=>p.filter(x=>x.status!=="Leido"&&x.status!=="Descartado"));}
+  function openGuide(cat){const existing=guides[cat];if(existing&&existing.text){setGuideModal({cat,text:existing.text,loading:false,error:""});}else{generateGuide(cat);}}
+  async function generateGuide(cat){const catPosts=posts.filter(p=>p.cat===cat);if(!catPosts.length)return;setGuideModal({cat,text:"",loading:true,error:"",count:catPosts.length});try{const claudeKey=localStorage.getItem("sr-v1-claude-key")||"";const r=await fetch("/api/guide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apiKey:claudeKey,category:cat,posts:catPosts.map(p=>({title:p.title,newsletter:p.newsletter,link:p.link}))})});const d=await r.json();if(d.error)throw new Error(d.error);const guideData={text:d.guide,ts:new Date().toLocaleDateString("es-MX"),count:catPosts.length};saveGuide(cat,guideData);setGuides(g=>({...g,[cat]:guideData}));setGuideModal({cat,text:d.guide,loading:false,error:""});}catch(e){setGuideModal(m=>({...m,loading:false,error:e.message}));}}
+  async function pushGuideToNotion(cat,guideText,count){const nk=localStorage.getItem(NOTION_KEY)||"";if(!nk)return{error:"Sin token de Notion"};try{const r=await fetch("/api/notion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({notionKey:nk,action:"saveGuide",category:cat,guideText,count,guideNotionPageId:guideNotionIds.current[cat]||null})});const d=await r.json();if(d.error)throw new Error(d.error);if(d.guideNotionPageId)guideNotionIds.current[cat]=d.guideNotionPageId;return{ok:true};}catch(e){return{error:e.message};}}
   async function fetchOne(s){
     try{
       const isSubstack=s.url.includes("substack.com");
@@ -399,7 +451,7 @@ function App(){
         <button onClick={clearReadDiscarded} style={{width:"100%",fontSize:10,marginTop:6,padding:"3px 0",borderRadius:5,border:"1px solid #fee2e2",background:"#fff5f5",color:"#b91c1c",cursor:"pointer"}}>Limpiar Leídos/Desc.</button>
       </div>
       <div style={sb}>
-        <CatManager customCats={customCats} onAdd={addCustomCat} onDelete={delCustomCat} onRename={renameCustomCat} fil={fil} setFil={setFil} posts={posts}/>
+        <CatManager customCats={customCats} onAdd={addCustomCat} onDelete={delCustomCat} onRename={renameCustomCat} fil={fil} setFil={setFil} posts={posts} onGuide={openGuide} guides={guides}/>
       </div>
       <div style={sb}>
         <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:8}}>AREAS</div>
@@ -549,6 +601,8 @@ function App(){
         </div>
       </div>
     </div>
+    {guideModal&&<GuideModal modal={guideModal} onClose={()=>setGuideModal(null)} onRegen={generateGuide} onNotion={pushGuideToNotion} guides={guides}/>}
+  </div>
   );
 }
 ReactDOM.createRoot(document.getElementById("app")).render(<App/>);

@@ -90,6 +90,46 @@ export default async function handler(req, res) {
       }
     }
 
+    // SAVE GUIDE
+    if (action === 'saveGuide') {
+      const { category, guideText, count, guideNotionPageId } = req.body || {};
+      if (!category || !guideText) return res.status(400).json({ error: 'Missing category or guideText' });
+      const slug = (category || '').toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const guideProps = {
+        'Post ID':    { title:     [{ text: { content: 'GUIA-' + slug } }] },
+        'Título':     { rich_text: [{ text: { content: ('📖 Guía: ' + category).slice(0, 2000) } }] },
+        'Notas':      { rich_text: [{ text: { content: (count + ' artículos · Generada automáticamente').slice(0, 2000) } }] },
+        'Estado':     { select: { name: 'Guardado' } },
+      };
+      if (category && category !== 'Sin categoria') guideProps['Categoría'] = { select: { name: category } };
+      const blocks = [];
+      for (const line of guideText.split('\n')) {
+        if (line.startsWith('## ')) {
+          blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ type: 'text', text: { content: line.slice(3).trim() } }] } });
+        } else if (line.startsWith('• ') || line.startsWith('- ')) {
+          blocks.push({ object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: [{ type: 'text', text: { content: line.replace(/^[•\-]\s*/,'').trim().slice(0, 2000) } }] } });
+        } else if (line.trim()) {
+          blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: line.trim().slice(0, 2000) } }] } });
+        }
+      }
+      try {
+        let r;
+        if (guideNotionPageId) {
+          r = await fetch(`https://api.notion.com/v1/pages/${guideNotionPageId}`, {
+            method: 'PATCH', headers: H,
+            body: JSON.stringify({ properties: guideProps, archived: false }),
+          });
+        } else {
+          const body = { parent: { database_id: DB_ID }, properties: guideProps };
+          if (blocks.length > 0) body.children = blocks.slice(0, 100);
+          r = await fetch('https://api.notion.com/v1/pages', { method: 'POST', headers: H, body: JSON.stringify(body) });
+        }
+        if (!r.ok) { const e = await r.text(); return res.status(r.status).json({ error: `Notion ${r.status}: ${e.slice(0, 300)}` }); }
+        const data = await r.json();
+        return res.json({ ok: true, guideNotionPageId: data.id });
+      } catch (e) { return res.status(500).json({ error: e.message }); }
+    }
+
     // SAVE / UPDATE
     if (!postId) return res.status(400).json({ error: 'Missing postId' });
 
