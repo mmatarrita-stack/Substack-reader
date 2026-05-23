@@ -291,12 +291,18 @@ function GuideModal({modal,onClose,onRegen,onNotion,guides,onDiscardPost}){
         {!modal.loading&&!modal.error&&sections.length===0&&text&&<div style={{fontSize:12,color:"#334155",lineHeight:1.7,whiteSpace:"pre-wrap",padding:"8px 0"}}>{renderWithCitations(text,g.posts||[])}</div>}
         {!modal.loading&&sections.length>0&&(
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {sections.map((sec,i)=>{const col=secColor(sec.title);const isFuentes=sec.title.toLowerCase().includes("fuente");return(
-              <div key={i} style={{background:isFuentes?"#faf5ff":col.bg,border:"1px solid "+(isFuentes?"#e9d5ff":col.border),borderRadius:8,padding:12}}>
-                <div style={{fontSize:11,fontWeight:700,color:isFuentes?"#7e22ce":col.title,marginBottom:6,textTransform:"uppercase",letterSpacing:.5}}>{sec.title}</div>
-                {isFuentes?renderFuentesSection(g.posts||[],onDiscardPost,modal.cat):<div style={{fontSize:12,color:"#334155",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{renderWithCitations(sec.content,g.posts||[])}</div>}
+            {sections.filter(sec=>!sec.title.toLowerCase().includes("fuente")).map((sec,i)=>{const col=secColor(sec.title);return(
+              <div key={i} style={{background:col.bg,border:"1px solid "+col.border,borderRadius:8,padding:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:col.title,marginBottom:6,textTransform:"uppercase",letterSpacing:.5}}>{sec.title}</div>
+                <div style={{fontSize:12,color:"#334155",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{renderWithCitations(sec.content,g.posts||[])}</div>
               </div>
             );})}
+            {(g.posts&&g.posts.length>0)&&(
+              <div style={{background:"#faf5ff",border:"1px solid #e9d5ff",borderRadius:8,padding:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#7e22ce",marginBottom:8,textTransform:"uppercase",letterSpacing:.5}}>Fuentes Recomendadas</div>
+                {renderFuentesSection(g.posts,onDiscardPost,modal.cat)}
+              </div>
+            )}
           </div>
         )}
       </div>
