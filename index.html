@@ -330,9 +330,21 @@ function App(){
   const[guides,setGuides]=useState(()=>getGuides());
   const[guideModal,setGuideModal]=useState(null);
   const guideNotionIds=React.useRef({});
-  function addCustomCat(name){if(customCats.includes(name))return;const n=[...customCats,name];setCustomCats(n);saveCustomCats(n);}
-  function delCustomCat(i){const n=customCats.filter((_,idx)=>idx!==i);setCustomCats(n);saveCustomCats(n);}
-  function renameCustomCat(i,name){if(!name.trim())return;const n=customCats.map((c,idx)=>idx===i?name.trim():c);setCustomCats(n);saveCustomCats(n);}
+  const notionConfigPageId=React.useRef(null);
+  async function saveNotionConfig(srcs,cats,arrs){
+    const nk=localStorage.getItem(NOTION_KEY)||"";
+    if(!nk)return;
+    try{
+      const bl=[...getBlacklist()];
+      const config={sources:srcs,cats,areas:arrs,blacklist:bl};
+      const r=await fetch("/api/notion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({notionKey:nk,action:"saveConfig",config,configPageId:notionConfigPageId.current})});
+      const d=await r.json();
+      if(d.configPageId)notionConfigPageId.current=d.configPageId;
+    }catch(e){}
+  }
+  function addCustomCat(name){if(customCats.includes(name))return;const n=[...customCats,name];setCustomCats(n);saveCustomCats(n);saveNotionConfig(sources,n,areas);}
+  function delCustomCat(i){const n=customCats.filter((_,idx)=>idx!==i);setCustomCats(n);saveCustomCats(n);saveNotionConfig(sources,n,areas);}
+  function renameCustomCat(i,name){if(!name.trim())return;const n=customCats.map((c,idx)=>idx===i?name.trim():c);setCustomCats(n);saveCustomCats(n);saveNotionConfig(sources,n,areas);}
   const notionPageIds=React.useRef({});
   async function pushToNotion(post,action){
     const nk=localStorage.getItem(NOTION_KEY)||"";
@@ -359,9 +371,9 @@ function App(){
       if(d.ok&&d.notionPageId)notionPageIds.current[post.id]=d.notionPageId;
     }catch(e){}
   }
-  function addArea(name){if(!name.trim()||areas.includes(name.trim()))return;const n=[...areas,name.trim()];setAreas(n);saveAreas(n);}
-  function delArea(i){const n=areas.filter((_,idx)=>idx!==i);setAreas(n);saveAreas(n);}
-  function clearReadDiscarded(){const toRemove=posts.filter(p=>p.status==="Leido"||p.status==="Descartado");addToBlacklist(toRemove.map(p=>p.id));const anns=getAnns();for(const p of toRemove){delete anns[p.id];}localStorage.setItem(ANN_KEY,JSON.stringify(anns));setPosts(p=>p.filter(x=>x.status!=="Leido"&&x.status!=="Descartado"));}
+  function addArea(name){if(!name.trim()||areas.includes(name.trim()))return;const n=[...areas,name.trim()];setAreas(n);saveAreas(n);saveNotionConfig(sources,customCats,n);}
+  function delArea(i){const n=areas.filter((_,idx)=>idx!==i);setAreas(n);saveAreas(n);saveNotionConfig(sources,customCats,n);}
+  function clearReadDiscarded(){const toRemove=posts.filter(p=>p.status==="Leido"||p.status==="Descartado");addToBlacklist(toRemove.map(p=>p.id));const anns=getAnns();for(const p of toRemove){delete anns[p.id];}localStorage.setItem(ANN_KEY,JSON.stringify(anns));setPosts(p=>p.filter(x=>x.status!=="Leido"&&x.status!=="Descartado"));saveNotionConfig(sources,customCats,areas);}
   function openGuide(cat){const existing=guides[cat];if(existing&&existing.text){setGuideModal({cat,text:existing.text,loading:false,error:""});}else{generateGuide(cat);}}
   async function generateGuide(cat){const catPosts=posts.filter(p=>p.cat===cat);if(!catPosts.length)return;setGuideModal({cat,text:"",loading:true,error:"",count:catPosts.length});try{const claudeKey=localStorage.getItem("sr-v1-claude-key")||"";const r=await fetch("/api/guide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apiKey:claudeKey,category:cat,posts:catPosts.map(p=>({title:p.title,newsletter:p.newsletter,link:p.link}))})});const d=await r.json();if(d.error)throw new Error(d.error);const guideData={text:d.guide,ts:new Date().toLocaleDateString("es-MX"),count:catPosts.length,posts:catPosts.map(p=>({title:p.title,link:p.link,newsletter:p.newsletter}))};saveGuide(cat,guideData);setGuides(g=>({...g,[cat]:guideData}));setGuideModal({cat,text:d.guide,loading:false,error:""});}catch(e){setGuideModal(m=>({...m,loading:false,error:e.message}));}}
   function discardFromGuide(cat,post){const p=posts.find(x=>x.link===post.link);if(p)onSta(p.id,"Descartado");const g=guides[cat]||{};const oldPosts=g.posts||[];const idx=oldPosts.findIndex(x=>x.link===post.link);const newPosts=oldPosts.filter(x=>x.link!==post.link);let newText=g.text||"";if(idx>=0){const n=idx+1;newText=newText.replace(new RegExp("\\["+n+"\\]","g"),"");newText=newText.replace(new RegExp("^[•\\-]\\s*\\[?"+n+"\\]?.*$\\n?","gm"),"");}const updated={...g,posts:newPosts,text:newText};saveGuide(cat,updated);setGuides(prev=>({...prev,[cat]:updated}));}
@@ -405,12 +417,27 @@ function App(){
   }
   async function loadAll(srcs){
     setLoading(true);setErrs({});setDone(0);
-    const all=[];
-    for(const s of (srcs||sources)){all.push(...await fetchOne(s));setDone(n=>n+1);}
     const anns=getAnns();
     let notionAnns={};
+    let resolvedSrcs=srcs||sources;
     const nk=localStorage.getItem(NOTION_KEY)||"";
-    if(nk){try{const r=await fetch("/api/notion?notionKey="+encodeURIComponent(nk));const d=await r.json();if(d.anns){notionAnns=d.anns;for(const[id,a] of Object.entries(d.anns)){if(a._notionPageId)notionPageIds.current[id]=a._notionPageId;}}}catch(e){}}
+    if(nk){
+      try{
+        const r=await fetch("/api/notion?notionKey="+encodeURIComponent(nk));
+        const d=await r.json();
+        if(d.anns){notionAnns=d.anns;for(const[id,a] of Object.entries(d.anns)){if(a._notionPageId)notionPageIds.current[id]=a._notionPageId;}}
+        if(d.configPageId)notionConfigPageId.current=d.configPageId;
+        if(d.notionConfig&&!srcs){
+          const nc=d.notionConfig;
+          if(nc.sources&&nc.sources.length){resolvedSrcs=nc.sources;setSources(nc.sources);localStorage.setItem(SRCS_KEY,JSON.stringify(nc.sources));}
+          if(nc.cats&&nc.cats.length){const mc=[...new Set([...DEFAULT_CATS,...nc.cats])];setCustomCats(mc);saveCustomCats(mc);}
+          if(nc.areas&&nc.areas.length){const ma=[...new Set([...DEFAULT_AREAS,...nc.areas])];setAreas(ma);saveAreas(ma);}
+          if(nc.blacklist&&nc.blacklist.length){addToBlacklist(nc.blacklist);}
+        }
+      }catch(e){}
+    }
+    const all=[];
+    for(const s of resolvedSrcs){all.push(...await fetchOne(s));setDone(n=>n+1);}
     const bl=getBlacklist();
     setPosts(all.filter(p=>!bl.has(p.id)).map(p=>{
       const ann=anns[p.id]||{};
@@ -426,8 +453,8 @@ function App(){
     setLoading(false);
   }
   useEffect(()=>{loadAll();},[]);
-  function addSrc(){if(!nurl.trim())return;let u=nurl.trim().split(/[?#]/)[0].replace(/\/$/,"");if(!u.startsWith("http"))u="https://"+u;const m=u.match(/substack\.com\/@([a-zA-Z0-9_-]+)/);const feed=m?"https://"+m[1]+".substack.com/feed":u.endsWith("/feed")?u:u+"/feed";const ns={id:Date.now(),url:feed,name:nurl.trim()};const nx=[...sources,ns];setSources(nx);localStorage.setItem(SRCS_KEY,JSON.stringify(nx));setNurl("");loadAll(nx);}
-  function rmSrc(id){const nx=sources.filter(s=>s.id!==id);setSources(nx);localStorage.setItem(SRCS_KEY,JSON.stringify(nx));setPosts(p=>p.filter(x=>x.srcId!==id));}
+  function addSrc(){if(!nurl.trim())return;let u=nurl.trim().split(/[?#]/)[0].replace(/\/$/,"");if(!u.startsWith("http"))u="https://"+u;const m=u.match(/substack\.com\/@([a-zA-Z0-9_-]+)/);const feed=m?"https://"+m[1]+".substack.com/feed":u.endsWith("/feed")?u:u+"/feed";const ns={id:Date.now(),url:feed,name:nurl.trim()};const nx=[...sources,ns];setSources(nx);localStorage.setItem(SRCS_KEY,JSON.stringify(nx));setNurl("");loadAll(nx);saveNotionConfig(nx,customCats,areas);}
+  function rmSrc(id){const nx=sources.filter(s=>s.id!==id);setSources(nx);localStorage.setItem(SRCS_KEY,JSON.stringify(nx));setPosts(p=>p.filter(x=>x.srcId!==id));saveNotionConfig(nx,customCats,areas);}
   function onSta(id,status){const clr=status==="Leido"||status==="Descartado";const ann={status,...(clr?{cat:"Sin categoria",area:""}:{})};saveAnn(id,ann);setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,status,...(clr?{cat:"Sin categoria",area:""}:{})}:x);const post=nx.find(x=>x.id===id);if(status==="Guardado")pushToNotion(post,"save");else if(clr)pushToNotion(post,"remove");return nx;});}
   function onNote(id,notes){saveAnn(id,{notes});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,notes}:x);const post=nx.find(x=>x.id===id);if(post.status==="Guardado"&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
   function onCat(id,cat){saveAnn(id,{cat});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,cat}:x);const post=nx.find(x=>x.id===id);if(post.status==="Guardado"&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}

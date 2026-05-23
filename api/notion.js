@@ -46,10 +46,16 @@ export default async function handler(req, res) {
       } while (cursor);
 
       const anns = {};
+      let notionConfig = null, configPageId = null;
       for (const row of rows) {
         const p = row.properties;
         const postId = p['Post ID']?.title?.[0]?.plain_text || '';
         if (!postId) continue;
+        if (postId === 'SR-CONFIG-V1') {
+          configPageId = row.id;
+          try { notionConfig = JSON.parse(p['Notas']?.rich_text?.[0]?.plain_text || 'null'); } catch(e) {}
+          continue;
+        }
         anns[postId] = {
           status: 'Guardado',
           rel:    p['Relevancia']?.select?.name   || '',
@@ -59,7 +65,22 @@ export default async function handler(req, res) {
           _notionPageId: row.id,
         };
       }
-      return res.json({ anns });
+      // Fetch blacklist blocks from config page
+      if (configPageId && notionConfig) {
+        try {
+          const br = await fetch(`https://api.notion.com/v1/blocks/${configPageId}/children`, { method: 'GET', headers: H });
+          if (br.ok) {
+            const bd = await br.json();
+            const bl = [];
+            for (const b of bd.results) {
+              const t = b.paragraph?.rich_text?.[0]?.plain_text || '';
+              if (t.startsWith('BL:')) { try { bl.push(...JSON.parse(t.slice(3))); } catch(e) {} }
+            }
+            if (bl.length) notionConfig.blacklist = bl;
+          }
+        } catch(e) {}
+      }
+      return res.json({ anns, notionConfig, configPageId });
     } catch (e) {
       return res.status(500).json({ error: e.message });
     }
@@ -88,6 +109,44 @@ export default async function handler(req, res) {
       } catch (e) {
         return res.status(500).json({ error: e.message });
       }
+    }
+
+    // SAVE CONFIG
+    if (action === 'saveConfig') {
+      const { config = {}, configPageId } = req.body || {};
+      const { sources = [], cats = [], areas = [], blacklist = [] } = config;
+      const mainJson = JSON.stringify({ sources, cats, areas });
+      const cfgProps = {
+        'Post ID': { title: [{ text: { content: 'SR-CONFIG-V1' } }] },
+        'Título':  { rich_text: [{ text: { content: '⚙️ SubstackIntel Config' } }] },
+        'Notas':   { rich_text: [{ text: { content: mainJson.slice(0, 1900) } }] },
+        'Estado':  { select: { name: 'Guardado' } },
+      };
+      const blBlocks = [];
+      for (let i = 0; i < blacklist.length; i += 20) {
+        blBlocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'BL:' + JSON.stringify(blacklist.slice(i, i + 20)) } }] } });
+      }
+      try {
+        let pid = configPageId;
+        if (pid) {
+          const pr = await fetch(`https://api.notion.com/v1/pages/${pid}`, { method: 'PATCH', headers: H, body: JSON.stringify({ properties: cfgProps, archived: false }) });
+          if (!pr.ok) { const e = await pr.text(); return res.status(pr.status).json({ error: `Notion ${pr.status}: ${e.slice(0, 300)}` }); }
+          // Refresh blocks: delete existing, append new
+          const br = await fetch(`https://api.notion.com/v1/blocks/${pid}/children`, { method: 'GET', headers: H });
+          if (br.ok) {
+            const bd = await br.json();
+            await Promise.all(bd.results.map(b => fetch(`https://api.notion.com/v1/blocks/${b.id}`, { method: 'DELETE', headers: H })));
+          }
+          if (blBlocks.length > 0) await fetch(`https://api.notion.com/v1/blocks/${pid}/children`, { method: 'PATCH', headers: H, body: JSON.stringify({ children: blBlocks }) });
+        } else {
+          const body = { parent: { database_id: DB_ID }, properties: cfgProps };
+          if (blBlocks.length > 0) body.children = blBlocks;
+          const cr = await fetch('https://api.notion.com/v1/pages', { method: 'POST', headers: H, body: JSON.stringify(body) });
+          if (!cr.ok) { const e = await cr.text(); return res.status(cr.status).json({ error: `Notion ${cr.status}: ${e.slice(0, 300)}` }); }
+          pid = (await cr.json()).id;
+        }
+        return res.json({ ok: true, configPageId: pid });
+      } catch (e) { return res.status(500).json({ error: e.message }); }
     }
 
     // SAVE GUIDE
