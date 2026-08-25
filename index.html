@@ -50,6 +50,14 @@ function getPanels(){try{const s=JSON.parse(localStorage.getItem(PANELS_KEY)||"n
 const NOW=new Date(),CM=NOW.getMonth(),CY=NOW.getFullYear(),PM=CM===0?11:CM-1,PY=CM===0?CY-1:CY;
 function txt(h){return(h||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();}
 function fd(s){try{return new Date(s).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"});}catch(e){return"---";}}
+const MESES_ES={ene:"01",feb:"02",mar:"03",abr:"04",may:"05",jun:"06",jul:"07",ago:"08",sep:"09",oct:"10",nov:"11",dic:"12"};
+function parseEsDateSafe(s){
+  if(!s)return new Date().toISOString();
+  const m=s.match(/(\d{1,2})\s+([a-záéíóú]{3})\.?\s+(\d{4})/i);
+  if(m){const mm=MESES_ES[m[2].toLowerCase()]||"01";return m[3]+"-"+mm+"-"+m[1].padStart(2,"0");}
+  const d=new Date(s);
+  return isNaN(d)?new Date().toISOString():d.toISOString();
+}
 function ip(d,p){const dt=new Date(d);if(p==="cur")return dt.getMonth()===CM&&dt.getFullYear()===CY;if(p==="prev")return dt.getMonth()===PM&&dt.getFullYear()===PY;if(p==="60d")return(Date.now()-dt)/86400000<=60;return true;}
 const RC={Alto:{bg:"#dcfce7",c:"#15803d"},Medio:{bg:"#fef9c3",c:"#a16207"},Bajo:{bg:"#f1f5f9",c:"#64748b"}};
 const SC={Nuevo:{bg:"#dbeafe",c:"#1d4ed8"},Guardado:{bg:"#ede9fe",c:"#6d28d9"},Leido:{bg:"#f1f5f9",c:"#64748b"},Descartado:{bg:"#fee2e2",c:"#b91c1c"}};
@@ -439,7 +447,15 @@ function App(){
     const all=[];
     for(const s of resolvedSrcs){all.push(...await fetchOne(s));setDone(n=>n+1);}
     const bl=getBlacklist();
-    setPosts(all.filter(p=>!bl.has(p.id)).map(p=>{
+    const knownIds=new Set(all.map(p=>p.id));
+    const manualPosts=Object.entries(notionAnns).filter(([id])=>!knownIds.has(id)&&!bl.has(id)).map(([id,a])=>({
+      id,srcId:"manual",newsletter:a.newsletter||"Notion (forzado)",
+      title:a.title||id,author:"",date:a.date||"",rawDate:parseEsDateSafe(a.date),
+      link:a.link||"#",cat:"Sin categoria",rel:"Medio",area:"",
+      summary:"Agregado directo en Notion — sin contenido de feed disponible.",
+      ideas:[],status:"Nuevo",partial:true,notes:"",
+    }));
+    setPosts(all.concat(manualPosts).filter(p=>!bl.has(p.id)).map(p=>{
       const ann=anns[p.id]||{};
       const nan=notionAnns[p.id]||{};
       return{...p,

@@ -56,12 +56,17 @@ export default async function handler(req, res) {
           try { notionConfig = JSON.parse(p['Notas']?.rich_text?.[0]?.plain_text || 'null'); } catch(e) {}
           continue;
         }
+        if (postId.startsWith('GUIA-')) continue; // paginas de guia generadas, no son articulos
         anns[postId] = {
           status: 'Guardado',
           rel:    p['Relevancia']?.select?.name   || '',
           cat:    p['Categoría']?.select?.name    || '',
           area:   p['Área']?.select?.name         || '',
           notes:  p['Notas']?.rich_text?.[0]?.plain_text || '',
+          title:      p['Título']?.rich_text?.[0]?.plain_text || '',
+          newsletter: p['Newsletter']?.rich_text?.[0]?.plain_text || '',
+          link:       p['Link']?.url || '',
+          date:       p['Fecha artículo']?.rich_text?.[0]?.plain_text || '',
           _notionPageId: row.id,
         };
       }
