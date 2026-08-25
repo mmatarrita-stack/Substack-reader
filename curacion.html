@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mesa de Curación — SubstackIntel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#eef1f6; --surface:#ffffff; --surface-hover:#f6f8fb;
+    --ink:#12151c; --ink-soft:#5b6472; --ink-faint:#8b93a1;
+    --line:#dbe1e9; --line-soft:#e8ecf1;
+    --accent:#1b6e68; --accent-ink:#0f4642; --accent-soft:#dcece9;
+    --sig-alto:#b3441c; --sig-alto-soft:#f6e3da;
+    --sig-medio:#a3781f; --sig-medio-soft:#f2e8d2;
+    --sig-bajo:#5b6472; --sig-bajo-soft:#e6e9ee;
+    --sig-postponed:#6a5aa8; --sig-postponed-soft:#e7e3f3;
+    --shadow: 0 1px 2px rgba(18,21,28,0.04), 0 8px 24px -12px rgba(18,21,28,0.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0e1015; --surface:#161922; --surface-hover:#1c202b;
+      --ink:#e9ecf2; --ink-soft:#a3aab8; --ink-faint:#707888;
+      --line:#2a2f3b; --line-soft:#20242e;
+      --accent:#3fada4; --accent-ink:#bfe9e3; --accent-soft:#173430;
+      --sig-alto:#e08258; --sig-alto-soft:#3a231a;
+      --sig-medio:#d4ab5c; --sig-medio-soft:#382e18;
+      --sig-bajo:#9aa2b1; --sig-bajo-soft:#252a34;
+      --sig-postponed:#a698d6; --sig-postponed-soft:#2a2540;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0e1015; --surface:#161922; --surface-hover:#1c202b;
+    --ink:#e9ecf2; --ink-soft:#a3aab8; --ink-faint:#707888;
+    --line:#2a2f3b; --line-soft:#20242e;
+    --accent:#3fada4; --accent-ink:#bfe9e3; --accent-soft:#173430;
+    --sig-alto:#e08258; --sig-alto-soft:#3a231a;
+    --sig-medio:#d4ab5c; --sig-medio-soft:#382e18;
+    --sig-bajo:#9aa2b1; --sig-bajo-soft:#252a34;
+    --sig-postponed:#a698d6; --sig-postponed-soft:#2a2540;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5;}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:.001ms !important;transition-duration:.001ms !important;} }
+  button,input,select,textarea{font:inherit;}
+  a{color:inherit;}
+
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:1.5rem;flex-wrap:wrap;padding:1rem 1.75rem;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:20;}
+  .brand{display:flex;align-items:center;gap:.7rem;}
+  .brand-mark{width:1.9rem;height:1.9rem;border-radius:50%;border:1.5px solid var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;}
+  .brand-mark::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:var(--accent);}
+  .brand-mark::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid var(--accent);opacity:.35;}
+  .brand-text h1{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:1.28rem;margin:0;letter-spacing:-.01em;}
+  .brand-text .sub{font-size:.74rem;color:var(--ink-soft);margin:0;}
+  .brand-text .sub a{color:var(--accent);text-decoration:none;}
+  .brand-text .sub a:hover{text-decoration:underline;}
+  .topbar-meta{font-family:"IBM Plex Mono",monospace;font-size:.76rem;color:var(--ink-faint);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  @media (max-width:640px){.topbar-meta{display:none;}}
+  .view-tabs{display:flex;gap:.3rem;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.2rem;}
+  .view-tab{font-size:.8rem;font-weight:500;padding:.4rem .85rem;border-radius:7px;border:none;background:transparent;color:var(--ink-soft);cursor:pointer;}
+  .view-tab.active{background:var(--ink);color:var(--paper);}
+
+  .shell{display:grid;grid-template-columns:248px 1fr;gap:0;align-items:start;}
+  @media (max-width:760px){.shell{grid-template-columns:1fr;}}
+
+  .sidebar{border-right:1px solid var(--line);padding:1.25rem 1rem;display:flex;flex-direction:column;gap:1.1rem;position:sticky;top:65px;align-self:start;max-height:calc(100vh - 65px);overflow-y:auto;}
+  @media (max-width:760px){.sidebar{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--line);}}
+  .btn-refresh{width:100%;font-weight:600;font-size:.85rem;padding:.65rem;border-radius:9px;border:none;background:var(--ink);color:var(--paper);cursor:pointer;transition:opacity .15s ease;}
+  .btn-refresh:hover{opacity:.88;}
+  .btn-refresh:disabled{opacity:.5;cursor:not-allowed;}
+  .side-block h3{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);margin:0 0 .55rem;}
+  .side-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.15rem;}
+  .side-list button{width:100%;display:flex;justify-content:space-between;align-items:center;gap:.5rem;background:none;border:none;text-align:left;cursor:pointer;padding:.4rem .5rem;border-radius:7px;font-size:.82rem;color:var(--ink-soft);}
+  .side-list button:hover{background:var(--surface-hover);color:var(--ink);}
+  .side-list button.active{background:var(--accent-soft);color:var(--accent-ink);font-weight:600;}
+  .side-list button .count{font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--ink-faint);font-variant-numeric:tabular-nums;}
+  .side-list button.active .count{color:var(--accent-ink);}
+  details.side-block>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:.4rem;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);margin-bottom:.55rem;}
+  details.side-block>summary::-webkit-details-marker{display:none;}
+  details.side-block>summary::before{content:"▸";font-size:.65rem;transition:transform .15s ease;}
+  details.side-block[open]>summary::before{transform:rotate(90deg);}
+  .notion-warn{font-size:.76rem;color:var(--sig-alto);background:var(--sig-alto-soft);border-radius:8px;padding:.5rem .6rem;}
+
+  .main-col{padding:1.5rem 1.5rem 4rem;min-width:0;}
+  .controls{display:flex;flex-direction:column;gap:.8rem;margin-bottom:1.25rem;}
+  .search-row{position:relative;}
+  .search-row input{width:100%;padding:.6rem .9rem .6rem 2.1rem;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:.85rem;}
+  .search-row input::placeholder{color:var(--ink-faint);}
+  .search-row svg{position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:var(--ink-faint);}
+  .row-between{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;}
+  .filter-group{display:flex;gap:.4rem;flex-wrap:wrap;}
+  .chip{font-size:.8rem;font-weight:500;padding:.4rem .8rem;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease;}
+  .chip:hover{border-color:var(--accent);color:var(--ink);}
+  .chip.active{background:var(--ink);border-color:var(--ink);color:var(--paper);}
+  .sort-group{display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--ink-soft);}
+  .sort-group select{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:.35rem .6rem;cursor:pointer;font-size:.8rem;}
+  .sort-group select:focus-visible,.chip:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .result-count{font-size:.78rem;color:var(--ink-faint);font-family:"IBM Plex Mono",monospace;}
+  .btn-toggle-all{font-size:.8rem;font-weight:500;padding:.4rem .75rem;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);cursor:pointer;white-space:nowrap;}
+  .btn-toggle-all:hover{border-color:var(--accent);color:var(--accent-ink);}
+
+  .findings{display:flex;flex-direction:column;gap:.85rem;}
+  .empty-results,.loading-state{border:1px dashed var(--line);border-radius:12px;padding:2rem;text-align:center;color:var(--ink-faint);font-size:.85rem;}
+
+  .finding-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:1.1rem 1.2rem;box-shadow:var(--shadow);transition:border-color .15s ease,opacity .2s ease;}
+  .finding-card[data-status="Guardado"]{border-color:var(--accent);}
+  .finding-card[data-status="Descartado"]{opacity:.5;}
+  .finding-card[data-postponed="true"]{border-color:var(--sig-postponed);}
+  .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:.5rem;flex-wrap:wrap;}
+  .badges{display:flex;gap:.4rem;flex-wrap:wrap;}
+  .badge{font-size:.72rem;font-weight:500;padding:.22rem .55rem;border-radius:6px;display:inline-flex;align-items:center;gap:.3rem;white-space:nowrap;}
+  .badge.level-alto{background:var(--sig-alto-soft);color:var(--sig-alto);}
+  .badge.level-medio{background:var(--sig-medio-soft);color:var(--sig-medio);}
+  .badge.level-bajo{background:var(--sig-bajo-soft);color:var(--sig-bajo);}
+  .badge.postponed{background:var(--sig-postponed-soft);color:var(--sig-postponed);font-family:"IBM Plex Mono",monospace;}
+  .badge.applic{background:transparent;border:1px solid var(--line);color:var(--ink-soft);font-family:"IBM Plex Mono",monospace;font-size:.7rem;}
+  .badge.tag{background:var(--line-soft);color:var(--ink-soft);}
+  .badge.state-Nuevo{background:var(--line-soft);color:var(--ink-soft);}
+  .badge.state-Guardado{background:var(--accent-soft);color:var(--accent-ink);}
+  .badge.state-Descartado{background:var(--sig-alto-soft);color:var(--sig-alto);}
+  .date{font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--ink-faint);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .finding-card h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:1.12rem;margin:0 0 .2rem;letter-spacing:-.005em;text-wrap:balance;}
+  .source{margin:0 0 .6rem;font-size:.78rem;color:var(--ink-faint);}
+  .field-label{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin:0 0 .2rem;}
+  .why{margin:0 0 .6rem;font-size:.89rem;color:var(--ink);max-width:65ch;}
+  .links-row{display:flex;flex-wrap:wrap;gap:.5rem;font-size:.78rem;margin:0 0 .8rem;align-items:center;}
+  .links-row a{color:var(--accent);text-decoration:none;}
+  .links-row a:hover{text-decoration:underline;color:var(--accent-ink);}
+  .links-row .no-note{color:var(--ink-faint);font-style:italic;}
+  .links-row .sep{color:var(--ink-faint);}
+
+  .badge-select{appearance:none;-webkit-appearance:none;-moz-appearance:none;border:none;cursor:pointer;font-family:inherit;padding-right:1.15rem;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 9px) 58%,calc(100% - 5px) 58%;background-size:4px 4px,4px 4px;background-repeat:no-repeat;}
+  .badge-select:hover{filter:brightness(0.96);}
+  .badge-select:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  .btn.expand-toggle{background:none;border:none;color:var(--accent);font-size:.8rem;font-weight:500;cursor:pointer;padding:0;margin-bottom:.6rem;display:inline-flex;align-items:center;gap:.3rem;}
+  .btn.expand-toggle:hover{color:var(--accent-ink);}
+  .expand-toggle .chevron{transition:transform .15s ease;display:inline-block;}
+  .expand-toggle[aria-expanded="true"] .chevron{transform:rotate(90deg);}
+  .detail-inner{border-top:1px solid var(--line-soft);padding-top:.7rem;display:flex;flex-direction:column;gap:.55rem;}
+  .detail-inner p{margin:0;font-size:.86rem;color:var(--ink-soft);max-width:68ch;}
+  .detail-inner p strong{color:var(--ink);font-weight:600;}
+
+  .note-block{margin-bottom:.7rem;}
+  .note-display{background:var(--paper);border:1px solid var(--line-soft);border-radius:8px;padding:.5rem .7rem;font-size:.83rem;color:var(--ink-soft);margin-bottom:.4rem;}
+  .note-display strong{color:var(--ink);}
+  .note-editor{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.4rem;}
+  .note-editor textarea{width:100%;min-height:4.5rem;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:.5rem .6rem;font-size:.83rem;resize:vertical;font-family:"IBM Plex Sans",sans-serif;}
+  .note-editor-actions{display:flex;gap:.4rem;}
+
+  .action-row{display:flex;gap:.45rem;flex-wrap:wrap;}
+  .btn{font-size:.8rem;font-weight:500;padding:.4rem .8rem;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);transition:background .15s ease,border-color .15s ease,color .15s ease;white-space:nowrap;}
+  .btn:hover{border-color:var(--accent);color:var(--accent-ink);}
+  .btn-approve:hover{border-color:var(--accent);background:var(--accent-soft);}
+  .btn-postpone:hover{border-color:var(--sig-postponed);color:var(--sig-postponed);}
+  .btn-reject:hover{border-color:var(--sig-alto);color:var(--sig-alto);}
+  .finding-card[data-status="Guardado"] .btn-approve{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .finding-card[data-status="Descartado"] .btn-reject{background:var(--sig-alto);border-color:var(--sig-alto);color:#fff;}
+  .finding-card[data-postponed="true"] .btn-postpone{background:var(--sig-postponed);border-color:var(--sig-postponed);color:#fff;}
+
+  .toast{position:fixed;left:50%;bottom:1.5rem;transform:translate(-50%,150%);background:var(--ink);color:var(--paper);font-size:.85rem;padding:.75rem 1.1rem;border-radius:10px;box-shadow:var(--shadow);max-width:min(90vw,440px);text-align:center;transition:transform .25s ease;z-index:50;}
+  .toast.show{transform:translate(-50%,0);}
+  .footnote{margin:2rem 0 0;font-size:.76rem;color:var(--ink-faint);border-top:1px solid var(--line);padding-top:1rem;max-width:68ch;}
+
+  .icon-toggle{width:1.8rem;height:1.8rem;border-radius:999px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;padding:0;margin:0;background:var(--surface);border:1px solid var(--line);color:var(--ink-soft);}
+  .icon-toggle:hover{border-color:var(--accent);color:var(--accent-ink);}
+  .icon-toggle .chevron{font-size:.95rem;}
+
+  .finding-list{display:flex;flex-direction:column;gap:.5rem;}
+  .list-row{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.65rem .9rem;box-shadow:var(--shadow);transition:border-color .15s ease,opacity .2s ease;}
+  .list-row[data-status="Guardado"]{border-color:var(--accent);}
+  .list-row[data-status="Descartado"]{opacity:.5;}
+  .list-row[data-postponed="true"]{border-color:var(--sig-postponed);}
+  .list-row-main{display:flex;align-items:center;gap:.7rem;}
+  .list-row-badges{display:flex;align-items:center;gap:.35rem;flex-shrink:0;}
+  .list-row-text{flex:1;min-width:0;}
+  .list-title{margin:0;font-size:.92rem;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .list-meta{margin:.1rem 0 0;font-size:.74rem;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .list-row .detail-wrapper{margin-top:.6rem;}
+  @media (max-width:640px){.list-title,.list-meta{white-space:normal;}}
+
+  .findings-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--shadow);}
+  .findings-table{width:100%;border-collapse:collapse;font-size:.83rem;}
+  .findings-table thead th{position:sticky;top:65px;z-index:5;background:var(--surface);text-align:left;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);padding:.6rem .7rem;border-bottom:1px solid var(--line);white-space:nowrap;}
+  .findings-table td{padding:.55rem .7rem;border-bottom:1px solid var(--line-soft);vertical-align:middle;}
+  .findings-table tbody tr:not(.table-detail-row):hover{background:var(--surface-hover);}
+  .findings-table tr[data-status="Descartado"]{opacity:.5;}
+  .findings-table .cell-title{max-width:26ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;}
+  .findings-table td.date{white-space:nowrap;}
+  .table-detail-row td{background:var(--paper);padding:.9rem 1rem;}
+  .table-detail-row .detail-inner{border-top:none;padding-top:0;}
+  .table-detail-row[hidden]{display:none;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div class="brand-text">
+      <h1>Mesa de Curación</h1>
+      <p class="sub">SubstackIntel — <a href="/index.html">volver al reader</a></p>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:1.1rem;">
+    <span class="topbar-meta" id="topbarMeta">cargando…</span>
+    <div class="view-tabs" role="group" aria-label="Vista">
+      <button class="view-tab" data-view="lista" type="button">Lista</button>
+      <button class="view-tab active" data-view="tarjetas" type="button">Tarjetas</button>
+      <button class="view-tab" data-view="tabla" type="button">Tabla</button>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="sidebar">
+    <button class="btn-refresh" id="refreshBtn" type="button">Actualizar feeds</button>
+    <div id="notionWarn"></div>
+
+    <div class="side-block">
+      <h3>Estado</h3>
+      <ul class="side-list" id="estadoList"></ul>
+    </div>
+
+    <details class="side-block" open>
+      <summary>Categoría</summary>
+      <ul class="side-list" id="categoriaList"></ul>
+    </details>
+
+    <details class="side-block" open>
+      <summary>Aplicabilidad</summary>
+      <ul class="side-list" id="applicList"></ul>
+    </details>
+
+    <details class="side-block">
+      <summary id="fuentesSummary">Fuentes</summary>
+      <ul class="side-list" id="fuentesList"></ul>
+    </details>
+  </aside>
+
+  <div class="main-col">
+    <div class="controls">
+      <div class="search-row">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="searchInput" placeholder="Buscar hallazgos…">
+      </div>
+      <div class="row-between">
+        <div class="filter-group" id="relevanciaChips" role="group" aria-label="Filtrar por relevancia">
+          <button class="chip active" data-filter="all" type="button">Todas</button>
+          <button class="chip" data-filter="Alto" type="button">Alto</button>
+          <button class="chip" data-filter="Medio" type="button">Medio</button>
+          <button class="chip" data-filter="Bajo" type="button">Bajo</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:1rem;">
+          <button class="btn-toggle-all" id="expandAllBtn" type="button">Expandir todo</button>
+          <span class="result-count" id="resultCount"></span>
+          <div class="sort-group">
+            <label for="sortSelect">Ordenar</label>
+            <select id="sortSelect">
+              <option value="relevancia">Relevancia</option>
+              <option value="fecha">Fecha</option>
+              <option value="aplicabilidad">Aplicabilidad</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="findings" id="findingsList"><div class="loading-state">Cargando artículos reales desde tus fuentes y Notion…</div></div>
+
+    <p class="footnote">
+      Mesa de Curación — datos reales de tus fuentes RSS + Notion. Aprobar/Descartar escriben de verdad en tu base de Notion. Aplicabilidad se calcula acá (Directa/Indirecta/Conceptual según Categoría y Estado) y no se guarda en Notion. Posponer es un marcador local de esta página (no cambia el Estado real en Notion, no sincroniza entre dispositivos).
+    </p>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  const SRCS_KEY="sr-v1-sources";
+  const NOTION_KEY="sr-v1-notion-key";
+  const BLACKLIST_KEY="sr-v1-blacklist";
+  const ANN_KEY="sr-v1-annotations";
+  const MESA_POSTPONE_KEY="sr-v1-mesa-postponed";
+  const CATS_KEY="sr-v1-custom-cats";
+  const DEFAULT_CATS=["Agents","System","Branding","Learning","Business"];
+  const SRCS=[{id:1,url:"https://oneusefulthing.substack.com/feed",name:"One Useful Thing"},{id:2,url:"https://opinionai.substack.com/feed",name:"Opinion AI"},{id:3,url:"https://jennyouyang.substack.com/feed",name:"Jenny Ouyang"},{id:4,url:"https://gencay.substack.com/feed",name:"Gencay I."},{id:5,url:"https://tudosisia.substack.com/feed",name:"Tu Dosisia"}];
+
+  function getSavedSources(){try{const s=JSON.parse(localStorage.getItem(SRCS_KEY)||"null");if(s&&s.length)return s;return SRCS;}catch(e){return SRCS;}}
+  function getCustomCats(){try{const s=JSON.parse(localStorage.getItem(CATS_KEY)||"null");if(!s||!s.length)return DEFAULT_CATS;const merged=[...DEFAULT_CATS];for(const c of s){if(!merged.includes(c))merged.push(c);}return merged;}catch(e){return DEFAULT_CATS;}}
+  function getBlacklist(){try{return new Set(JSON.parse(localStorage.getItem(BLACKLIST_KEY)||"[]"));}catch(e){return new Set();}}
+  function getAnns(){try{return JSON.parse(localStorage.getItem(ANN_KEY)||"{}");}catch(e){return{};}}
+  function saveAnn(id,data){try{const a=getAnns();localStorage.setItem(ANN_KEY,JSON.stringify({...a,[id]:{...a[id],...data}}));}catch(e){}}
+  function getMesaPostponed(){try{return JSON.parse(localStorage.getItem(MESA_POSTPONE_KEY)||"{}");}catch(e){return{};}}
+  function setMesaPostponed(id,val){try{const m=getMesaPostponed();if(val)m[id]=true;else delete m[id];localStorage.setItem(MESA_POSTPONE_KEY,JSON.stringify(m));}catch(e){}}
+
+  function txt(h){return(h||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();}
+  function titleSlug(t){return(t||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,70);}
+  function norm(s){return(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
+  function fd(s){try{return new Date(s).toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"});}catch(e){return"---";}}
+  const MESES_ES={ene:"01",feb:"02",mar:"03",abr:"04",may:"05",jun:"06",jul:"07",ago:"08",sep:"09",oct:"10",nov:"11",dic:"12"};
+  function parseEsDateSafe(s){
+    if(!s)return new Date().toISOString();
+    const m=s.match(/(\d{1,2})\s+([a-záéíóú]{3})\.?\s+(\d{4})/i);
+    if(m){const mm=MESES_ES[m[2].toLowerCase()]||"01";return m[3]+"-"+mm+"-"+m[1].padStart(2,"0");}
+    const d=new Date(s);
+    return isNaN(d)?new Date().toISOString():d.toISOString();
+  }
+
+  async function fetchOne(s){
+    try{
+      const isSubstack=s.url.includes("substack.com");
+      if(isSubstack){
+        const host=s.url.match(/https?:\/\/([^\/]+)/)[1];
+        const apiUrl="/api/proxy?url="+encodeURIComponent("https://"+host+"/api/v1/posts?limit=25");
+        const r=await fetch(apiUrl);
+        if(!r.ok)throw new Error("status "+r.status);
+        const d=await r.json();
+        if(!Array.isArray(d))throw new Error("bad response");
+        return d.map(item=>{
+          const body=txt(item.body_html||item.description||"");
+          const partial=body.length<120;
+          const summary=partial?"Contenido parcial en el feed. Clic en el título para leer completo.":body.slice(0,320)+(body.length>320?"…":"");
+          const postId=titleSlug(item.title)||item.canonical_url||String(item.id||Math.random());
+          return{id:s.id+"|"+postId,srcId:s.id,newsletter:s.name,title:item.title||"Sin título",dateLabel:fd(item.post_date),rawDate:item.post_date||"",link:item.canonical_url||"#",cat:"Sin categoria",rel:"Medio",area:"",summary,status:"Nuevo",notes:""};
+        });
+      }else{
+        const reqUrl="https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent(s.url);
+        const r=await fetch(reqUrl);
+        const d=await r.json();
+        if(d.status!=="ok")throw new Error(d.message||"rss2json error");
+        return(d.items||[]).map(item=>{
+          const body=txt(item.content||item.description||"");
+          const partial=body.length<120;
+          const summary=partial?"Contenido parcial en el feed. Clic en el título para leer completo.":body.slice(0,320)+(body.length>320?"…":"");
+          const name=(d.feed&&d.feed.title)||s.name;
+          return{id:s.id+"|"+(titleSlug(item.title)||item.guid||item.link||Math.random()),srcId:s.id,newsletter:name,title:item.title||"Sin título",dateLabel:fd(item.pubDate),rawDate:item.pubDate||"",link:item.link||"#",cat:"Sin categoria",rel:"Medio",area:"",summary,status:"Nuevo",notes:""};
+        });
+      }
+    }catch(e){ return []; }
+  }
+
+  async function loadReal(){
+    const srcs=getSavedSources();
+    const localAnns=getAnns();
+    const nk=localStorage.getItem(NOTION_KEY)||"";
+    let notionAnns={};
+    let notionOk=!!nk;
+    if(nk){
+      try{
+        const r=await fetch("/api/notion?notionKey="+encodeURIComponent(nk));
+        const d=await r.json();
+        if(d.error){ notionOk=false; }
+        if(d.anns)notionAnns=d.anns;
+      }catch(e){ notionOk=false; }
+    }
+    const all=[];
+    for(const s of srcs){ all.push(...await fetchOne(s)); }
+    const bl=getBlacklist();
+    const knownIds=new Set(all.map(p=>p.id));
+    const manualPosts=Object.entries(notionAnns).filter(([id])=>!knownIds.has(id)&&!bl.has(id)).map(([id,a])=>({
+      id,srcId:"manual",newsletter:a.newsletter||"Notion (forzado)",
+      title:a.title||id,dateLabel:a.date||"sin fecha",rawDate:parseEsDateSafe(a.date),
+      link:a.link||"#",cat:"Sin categoria",rel:"Medio",area:"",
+      summary:"Agregado directo en Notion — sin contenido de feed disponible.",
+      status:"Nuevo",notes:""
+    }));
+    const mesaPostponed=getMesaPostponed();
+    const merged=all.concat(manualPosts).filter(p=>!bl.has(p.id)).map(p=>{
+      const ann=localAnns[p.id]||{};
+      const nan=notionAnns[p.id]||{};
+      return{...p,
+        status:nan.status||ann.status||p.status,
+        notes:nan.notes||ann.notes||p.notes,
+        cat:nan.cat||ann.cat||p.cat,
+        rel:nan.rel||ann.rel||p.rel,
+        area:nan.area||ann.area||p.area,
+        notionPageId:nan._notionPageId||null,
+        postponedLocal:!!mesaPostponed[p.id],
+      };
+    }).sort((a,b)=>new Date(b.rawDate)-new Date(a.rawDate));
+    return {posts:merged, notionOk, hasKey:!!nk};
+  }
+
+  async function writeToNotion(post,action){
+    const nk=localStorage.getItem(NOTION_KEY)||"";
+    if(!nk) return post.notionPageId||null;
+    try{
+      if(action==="remove"){
+        if(!post.notionPageId) return null;
+        await fetch("/api/notion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({notionKey:nk,action:"remove",notionPageId:post.notionPageId})});
+        return null;
+      }
+      const body={notionKey:nk,action:"save",postId:post.id,title:post.title,newsletter:post.newsletter,link:post.link,date:post.dateLabel,rel:post.rel,cat:post.cat,area:post.area,notes:post.notes,notionPageId:post.notionPageId,summary:post.summary};
+      const r=await fetch("/api/notion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const d=await r.json();
+      return (d && d.notionPageId) || post.notionPageId || null;
+    }catch(e){ return post.notionPageId||null; }
+  }
+
+  let posts=[];
+  let hasNotionKey=false;
+
+  const findingsList=document.getElementById("findingsList");
+  const resultCount=document.getElementById("resultCount");
+  const toast=document.getElementById("toast");
+  const estadoList=document.getElementById("estadoList");
+  const categoriaList=document.getElementById("categoriaList");
+  const applicList=document.getElementById("applicList");
+  const fuentesList=document.getElementById("fuentesList");
+  const fuentesSummary=document.getElementById("fuentesSummary");
+  const expandAllBtn=document.getElementById("expandAllBtn");
+  const refreshBtn=document.getElementById("refreshBtn");
+  const notionWarn=document.getElementById("notionWarn");
+  const topbarMeta=document.getElementById("topbarMeta");
+
+  const filters={relevancia:"all", estado:"all", categoria:"all", applic:"all", fuente:"all", q:""};
+  let activeSort="relevancia";
+  let currentView="tarjetas";
+  let expandedIds=new Set();
+
+  const levelRank={Alto:0, Medio:1, Bajo:2};
+  const applicRank={Directa:0, Indirecta:1, Conceptual:2};
+  const applicMark={Directa:"◆", Indirecta:"◇", Conceptual:"○"};
+
+  function applicOf(p){
+    if(p.status==="Guardado") return (p.cat==="Business") ? "Indirecta" : "Directa";
+    return "Conceptual";
+  }
+
+  function showToast(msg){
+    toast.textContent=msg;
+    toast.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t=setTimeout(()=>toast.classList.remove("show"),2800);
+  }
+
+  function syncExpandAllBtn(){
+    const visible=posts.filter(passesFilters);
+    const allOpen=visible.length>0 && visible.every(p=>expandedIds.has(p.id));
+    expandAllBtn.textContent=allOpen?"Contraer todo":"Expandir todo";
+  }
+
+  function levelOptionsHTML(p){
+    return ["Alto","Medio","Bajo"].map(lv=>`<option value="${lv}" ${p.rel===lv?"selected":""}>${lv}</option>`).join("");
+  }
+  function catOptionsHTML(p){
+    const cats=getCustomCats();
+    return `<option value="Sin categoria" ${(!p.cat||p.cat==="Sin categoria")?"selected":""}>Sin categoria</option>` +
+      cats.map(c=>`<option value="${c}" ${p.cat===c?"selected":""}>${c}</option>`).join("");
+  }
+  function linksRowHTML(p){
+    return `<div class="links-row">
+      <a href="${p.link}" target="_blank" rel="noopener">Ver fuente original ↗</a>
+      ${p.notionPageId ? `<span class="sep">·</span><span class="no-note">guardado en Notion</span>` : `<span class="sep">·</span><span class="no-note">no guardado en Notion todavía</span>`}
+    </div>`;
+  }
+  function detailBlockHTML(p){
+    return `<div class="detail-inner">
+      <p><strong>Resumen —</strong> ${p.summary||"Sin resumen disponible."}</p>
+      <div class="note-block" ${p.notes?"":"hidden"}>
+        <div class="note-display"><strong>Nota:</strong> <span class="note-text"></span></div>
+      </div>
+      <div class="note-editor-wrap" hidden>
+        <div class="note-editor">
+          <textarea placeholder="Tu comentario sobre este artículo…"></textarea>
+          <div class="note-editor-actions">
+            <button class="btn btn-save-note" type="button">Guardar nota</button>
+            <button class="btn btn-cancel-note" type="button">Cancelar</button>
+          </div>
+        </div>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-approve" type="button">${p.status==="Guardado" ? "✓ Aprobado" : "Aprobar"}</button>
+        <button class="btn btn-postpone" type="button">${p.postponedLocal ? "⏳ Pospuesto" : "Posponer"}</button>
+        <button class="btn btn-reject" type="button">${p.status==="Descartado" ? "✕ Descartado" : "Descartar"}</button>
+        <button class="btn btn-note" type="button">${p.notes ? "Editar nota" : "+ Nota"}</button>
+      </div>
+    </div>`;
+  }
+
+  function bindLevelSelect(el,p){
+    el.addEventListener("change", async (e)=>{
+      p.rel=e.target.value;
+      saveAnn(p.id,{rel:p.rel});
+      if(p.status==="Guardado") p.notionPageId=await writeToNotion(p,"update");
+      render();
+    });
+  }
+  function bindCategoriaSelect(el,p){
+    el.addEventListener("change", async (e)=>{
+      p.cat=e.target.value;
+      saveAnn(p.id,{cat:p.cat});
+      if(p.status==="Guardado") p.notionPageId=await writeToNotion(p,"update");
+      render();
+    });
+  }
+  function bindExpandToggle(toggle,wrapper,labelEl,id){
+    toggle.addEventListener("click", ()=>{
+      const open=toggle.getAttribute("aria-expanded")==="true";
+      toggle.setAttribute("aria-expanded", String(!open));
+      wrapper.hidden=open;
+      if(labelEl) labelEl.textContent = open ? "Ver detalle y gestionar" : "Ocultar";
+      if(id){ if(open) expandedIds.delete(id); else expandedIds.add(id); syncExpandAllBtn(); }
+    });
+  }
+  function bindDetailBlock(container,p){
+    if(p.notes){ const nt=container.querySelector(".note-text"); if(nt) nt.textContent=p.notes; }
+    const noteEditorWrap=container.querySelector(".note-editor-wrap");
+    const noteBtn=container.querySelector(".btn-note");
+    const textarea=container.querySelector(".note-editor-wrap textarea");
+    noteBtn.addEventListener("click", ()=>{
+      textarea.value=p.notes||"";
+      noteEditorWrap.hidden=!noteEditorWrap.hidden;
+      if(!noteEditorWrap.hidden) textarea.focus();
+    });
+    container.querySelector(".btn-cancel-note").addEventListener("click", ()=> noteEditorWrap.hidden=true);
+    container.querySelector(".btn-save-note").addEventListener("click", async ()=>{
+      p.notes=textarea.value.trim();
+      saveAnn(p.id,{notes:p.notes});
+      if(p.status==="Guardado") p.notionPageId=await writeToNotion(p,"update");
+      noteEditorWrap.hidden=true;
+      render();
+    });
+    container.querySelector(".btn-postpone").addEventListener("click", ()=>{
+      p.postponedLocal=!p.postponedLocal;
+      setMesaPostponed(p.id,p.postponedLocal);
+      render();
+    });
+    container.querySelector(".btn-approve").addEventListener("click", async ()=>{
+      const nk=localStorage.getItem(NOTION_KEY)||"";
+      if(!nk){ showToast("Falta tu token de Notion — cargalo en el reader (API Keys → NOTION) primero."); return; }
+      const wasApproved=p.status==="Guardado";
+      p.status=wasApproved?"Nuevo":"Guardado";
+      saveAnn(p.id,{status:p.status});
+      showToast(wasApproved?"Se quitó de Guardado.":"Guardando en Notion…");
+      p.notionPageId=await writeToNotion(p, wasApproved?"remove":"save");
+      if(!wasApproved) showToast("Guardado en Notion.");
+      render();
+    });
+    container.querySelector(".btn-reject").addEventListener("click", async ()=>{
+      const nk=localStorage.getItem(NOTION_KEY)||"";
+      const wasRejected=p.status==="Descartado";
+      p.status=wasRejected?"Nuevo":"Descartado";
+      saveAnn(p.id,{status:p.status});
+      if(!wasRejected && nk && p.notionPageId){ await writeToNotion(p,"remove"); p.notionPageId=null; }
+      render();
+    });
+  }
+
+  function cardTemplate(p){
+    const card=document.createElement("article");
+    card.className="finding-card";
+    card.dataset.id=p.id;
+    card.dataset.status=p.status;
+    card.dataset.postponed=String(!!p.postponedLocal);
+    const ap=applicOf(p);
+    const isOpen=expandedIds.has(p.id);
+    card.innerHTML=`
+      <div class="card-head">
+        <div class="badges">
+          <select class="badge badge-select level-${p.rel.toLowerCase()}" data-role="level" aria-label="Relevancia">${levelOptionsHTML(p)}</select>
+          <span class="badge applic"><span>${applicMark[ap]}</span>${ap}</span>
+          <select class="badge badge-select tag" data-role="categoria" aria-label="Categoría">${catOptionsHTML(p)}</select>
+          <span class="badge state-${p.status}">${p.status}</span>
+          ${p.postponedLocal ? `<span class="badge postponed">⏳ pospuesto</span>` : ""}
+        </div>
+        <time class="date">${p.dateLabel}</time>
+      </div>
+      <h3>${p.title}</h3>
+      <p class="source">${p.newsletter}</p>
+      ${linksRowHTML(p)}
+      <button class="btn expand-toggle" type="button" aria-expanded="${isOpen}"><span class="chevron">›</span> <span class="toggle-label">${isOpen?"Ocultar":"Ver detalle y gestionar"}</span></button>
+      <div class="detail-wrapper" ${isOpen?"":"hidden"}>${detailBlockHTML(p)}</div>
+    `;
+    bindLevelSelect(card.querySelector('select[data-role="level"]'),p);
+    bindCategoriaSelect(card.querySelector('select[data-role="categoria"]'),p);
+    const toggle=card.querySelector(".expand-toggle");
+    const wrapper=card.querySelector(".detail-wrapper");
+    bindExpandToggle(toggle,wrapper,toggle.querySelector(".toggle-label"),p.id);
+    bindDetailBlock(wrapper,p);
+    return card;
+  }
+
+  function listItemTemplate(p){
+    const row=document.createElement("div");
+    row.className="list-row";
+    row.dataset.id=p.id;
+    row.dataset.status=p.status;
+    row.dataset.postponed=String(!!p.postponedLocal);
+    const ap=applicOf(p);
+    const isOpen=expandedIds.has(p.id);
+    row.innerHTML=`
+      <div class="list-row-main">
+        <div class="list-row-badges">
+          <select class="badge badge-select level-${p.rel.toLowerCase()}" data-role="level" aria-label="Relevancia">${levelOptionsHTML(p)}</select>
+          <span class="badge applic" title="Aplicabilidad: ${ap}"><span>${applicMark[ap]}</span></span>
+        </div>
+        <div class="list-row-text">
+          <p class="list-title">${p.title}</p>
+          <p class="list-meta">${p.newsletter} · ${p.dateLabel} · ${p.cat||"Sin categoria"}</p>
+        </div>
+        <span class="badge state-${p.status}">${p.status}</span>
+        <button class="btn icon-toggle expand-toggle" type="button" aria-expanded="${isOpen}" aria-label="Ver detalle y gestionar"><span class="chevron">›</span></button>
+      </div>
+      <div class="detail-wrapper" ${isOpen?"":"hidden"}>${detailBlockHTML(p)}</div>
+    `;
+    bindLevelSelect(row.querySelector('select[data-role="level"]'),p);
+    const toggle=row.querySelector(".expand-toggle");
+    const wrapper=row.querySelector(".detail-wrapper");
+    bindExpandToggle(toggle,wrapper,null,p.id);
+    bindDetailBlock(wrapper,p);
+    return row;
+  }
+
+  function tableRowTemplate(p){
+    const tr=document.createElement("tr");
+    tr.dataset.id=p.id;
+    tr.dataset.status=p.status;
+    const ap=applicOf(p);
+    const isOpen=expandedIds.has(p.id);
+    tr.innerHTML=`
+      <td><button class="btn icon-toggle expand-toggle" type="button" aria-expanded="${isOpen}" aria-label="Ver detalle y gestionar"><span class="chevron">›</span></button></td>
+      <td class="cell-title">${p.title}</td>
+      <td>${p.newsletter}</td>
+      <td><select class="badge badge-select tag" data-role="categoria" aria-label="Categoría">${catOptionsHTML(p)}</select></td>
+      <td><span class="badge applic"><span>${applicMark[ap]}</span>${ap}</span></td>
+      <td><select class="badge badge-select level-${p.rel.toLowerCase()}" data-role="level" aria-label="Relevancia">${levelOptionsHTML(p)}</select></td>
+      <td><span class="badge state-${p.status}">${p.status}${p.postponedLocal?" · ⏳":""}</span></td>
+      <td class="date">${p.dateLabel}</td>
+    `;
+    const detailTr=document.createElement("tr");
+    detailTr.className="table-detail-row";
+    detailTr.hidden=!isOpen;
+    detailTr.innerHTML=`<td colspan="8">${detailBlockHTML(p)}</td>`;
+    bindLevelSelect(tr.querySelector('select[data-role="level"]'),p);
+    bindCategoriaSelect(tr.querySelector('select[data-role="categoria"]'),p);
+    const toggle=tr.querySelector(".expand-toggle");
+    bindExpandToggle(toggle,detailTr,null,p.id);
+    bindDetailBlock(detailTr,p);
+    return [tr,detailTr];
+  }
+  function buildTableEl(visible){
+    const wrap=document.createElement("div");
+    wrap.className="findings-table-wrap";
+    const table=document.createElement("table");
+    table.className="findings-table";
+    table.innerHTML=`<thead><tr><th></th><th>Título</th><th>Fuente</th><th>Categoría</th><th>Aplicabilidad</th><th>Relevancia</th><th>Estado</th><th>Fecha</th></tr></thead>`;
+    const tbody=document.createElement("tbody");
+    visible.forEach(p=>{ const [tr,dtr]=tableRowTemplate(p); tbody.appendChild(tr); tbody.appendChild(dtr); });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function passesFilters(p){
+    if(filters.relevancia!=="all" && p.rel!==filters.relevancia) return false;
+    if(filters.estado!=="all" && p.status!==filters.estado) return false;
+    if(filters.categoria!=="all" && p.cat!==filters.categoria) return false;
+    if(filters.applic!=="all" && applicOf(p)!==filters.applic) return false;
+    if(filters.fuente!=="all" && p.newsletter!==filters.fuente) return false;
+    if(filters.q && !(p.title+" "+p.newsletter).toLowerCase().includes(filters.q)) return false;
+    return true;
+  }
+  function buildSideList(container,items,activeKey,filterKey){
+    container.innerHTML="";
+    items.forEach(({key,label,count})=>{
+      const li=document.createElement("li");
+      const btn=document.createElement("button");
+      btn.type="button";
+      btn.className=key===activeKey?"active":"";
+      btn.innerHTML=`<span>${label}</span><span class="count">${count}</span>`;
+      btn.addEventListener("click", ()=>{ filters[filterKey]=key; render(); });
+      li.appendChild(btn);
+      container.appendChild(li);
+    });
+  }
+
+  function render(){
+    const estadoCounts={Nuevo:0,Guardado:0,Descartado:0};
+    posts.forEach(p=>{ estadoCounts[p.status]=(estadoCounts[p.status]||0)+1; });
+    buildSideList(estadoList, [
+      {key:"all",label:"Todos",count:posts.length},
+      {key:"Nuevo",label:"Nuevo",count:estadoCounts.Nuevo||0},
+      {key:"Guardado",label:"Guardado",count:estadoCounts.Guardado||0},
+      {key:"Descartado",label:"Descartado",count:estadoCounts.Descartado||0},
+    ], filters.estado, "estado");
+
+    topbarMeta.textContent = `${posts.length} artículos · ${posts.filter(p=>p.status==="Guardado").length} guardados`;
+
+    const cats={};
+    posts.forEach(p=>{ const c=p.cat||"Sin categoria"; cats[c]=(cats[c]||0)+1; });
+    buildSideList(categoriaList, [
+      {key:"all",label:"Todas",count:posts.length},
+      ...Object.entries(cats).map(([k,v])=>({key:k,label:k,count:v})),
+    ], filters.categoria, "categoria");
+
+    const applics={Directa:0,Indirecta:0,Conceptual:0};
+    posts.forEach(p=>{ applics[applicOf(p)]++; });
+    buildSideList(applicList, [
+      {key:"all",label:"Todas",count:posts.length},
+      {key:"Directa",label:"◆ Directa",count:applics.Directa},
+      {key:"Indirecta",label:"◇ Indirecta",count:applics.Indirecta},
+      {key:"Conceptual",label:"○ Conceptual",count:applics.Conceptual},
+    ], filters.applic, "applic");
+
+    const fuentesSet=[...new Set(posts.map(p=>p.newsletter))];
+    fuentesSummary.textContent=`Fuentes (${fuentesSet.length})`;
+    buildSideList(fuentesList, [
+      {key:"all",label:"Todas",count:posts.length},
+      ...fuentesSet.map(f=>({key:f,label:f,count:posts.filter(p=>p.newsletter===f).length})),
+    ], filters.fuente, "fuente");
+
+    document.querySelectorAll("#relevanciaChips .chip").forEach(c=>{
+      c.classList.toggle("active", c.dataset.filter===filters.relevancia);
+    });
+    document.querySelectorAll(".view-tab").forEach(t=>{
+      t.classList.toggle("active", t.dataset.view===currentView);
+    });
+
+    findingsList.innerHTML="";
+    let visible=posts.filter(passesFilters);
+    visible=visible.slice().sort((a,b)=>{
+      if(activeSort==="relevancia") return (levelRank[a.rel]??1)-(levelRank[b.rel]??1);
+      if(activeSort==="aplicabilidad") return applicRank[applicOf(a)]-applicRank[applicOf(b)];
+      if(activeSort==="fecha") return new Date(b.rawDate)-new Date(a.rawDate);
+      return 0;
+    });
+
+    resultCount.textContent=`${visible.length} de ${posts.length}`;
+    syncExpandAllBtn();
+
+    if(visible.length===0){
+      findingsList.innerHTML=`<div class="empty-results">Nada coincide con estos filtros.</div>`;
+    } else if(currentView==="tabla"){
+      findingsList.appendChild(buildTableEl(visible));
+    } else if(currentView==="lista"){
+      const list=document.createElement("div");
+      list.className="finding-list";
+      visible.forEach(p=>list.appendChild(listItemTemplate(p)));
+      findingsList.appendChild(list);
+    } else {
+      visible.forEach(p=>findingsList.appendChild(cardTemplate(p)));
+    }
+  }
+
+  document.querySelectorAll("#relevanciaChips .chip").forEach(chip=>{
+    chip.addEventListener("click", ()=>{ filters.relevancia=chip.dataset.filter; render(); });
+  });
+  document.getElementById("sortSelect").addEventListener("change", (e)=>{ activeSort=e.target.value; render(); });
+  document.getElementById("searchInput").addEventListener("input", (e)=>{ filters.q=e.target.value.trim().toLowerCase(); render(); });
+  document.querySelectorAll(".view-tab").forEach(tab=>{
+    tab.addEventListener("click", ()=>{ if(tab.dataset.view===currentView) return; currentView=tab.dataset.view; render(); });
+  });
+  expandAllBtn.addEventListener("click", ()=>{
+    const visible=posts.filter(passesFilters);
+    const allOpen=visible.length>0 && visible.every(p=>expandedIds.has(p.id));
+    if(allOpen){ visible.forEach(p=>expandedIds.delete(p.id)); } else { visible.forEach(p=>expandedIds.add(p.id)); }
+    render();
+  });
+
+  async function boot(){
+    refreshBtn.disabled=true; refreshBtn.textContent="Cargando…";
+    const {posts:loaded, notionOk, hasKey}=await loadReal();
+    posts=loaded;
+    if(!hasKey){
+      notionWarn.innerHTML=`<div class="notion-warn">Sin token de Notion en este navegador — solo se ven los feeds RSS, sin lo ya guardado. Cargalo en el reader (API Keys → NOTION).</div>`;
+    } else if(!notionOk){
+      notionWarn.innerHTML=`<div class="notion-warn">No se pudo leer Notion (revisá el token). Mostrando solo los feeds.</div>`;
+    } else {
+      notionWarn.innerHTML="";
+    }
+    refreshBtn.disabled=false; refreshBtn.textContent="Actualizar feeds";
+    render();
+  }
+
+  refreshBtn.addEventListener("click", boot);
+  boot();
+})();
+</script>
+</body>
+</html>
