@@ -14,6 +14,8 @@ export default async function handler(req, res) {
 Título: ${title}
 Contenido: ${content || '(sin contenido adicional)'}
 
+Temas recurrentes de interés del lector (usa esta lista SOLO para juzgar la sección "Relevancia Sugerida" más abajo, no para las demás secciones): agentes de IA / Claude como asistente, workflows y automatización con IA, n8n, Power BI / DAX, operaciones SAP Business One, second brain / gestión de conocimiento personal, branding y negocio propio.
+
 Genera el análisis con EXACTAMENTE estas secciones (usa los encabezados ## tal como están):
 
 ## Idea Principal
@@ -37,6 +39,9 @@ Genera el análisis con EXACTAMENTE estas secciones (usa los encabezados ## tal 
 ## Mi Lectura Más Importante
 [El takeaway más valioso y accionable de todo el artículo]
 
+## Relevancia Sugerida
+[Una sola línea con este formato exacto: "Alto" | "Medio" | "Bajo" — seguido de un guion y una justificación de máximo 15 palabras que mencione a qué tema recurrente de la lista de arriba conecta, o "sin conexión clara con tus temas recurrentes" si no aplica ninguno. Esto es una SUGERENCIA para que el lector confirme o ajuste manualmente, no una clasificación final.]
+
 Sé específico, estratégico y evita generalidades. El análisis debe sentirse como el de un experto que ya leyó el artículo completo.`;
 
   try {
@@ -49,7 +54,7 @@ Sé específico, estratégico y evita generalidades. El análisis debe sentirse 
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1200,
+        max_tokens: 1500,
         messages: [{ role: 'user', content: prompt }]
       })
     });
