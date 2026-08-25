@@ -58,7 +58,7 @@ export default async function handler(req, res) {
         }
         if (postId.startsWith('GUIA-')) continue; // paginas de guia generadas, no son articulos
         anns[postId] = {
-          status: p['Estado']?.select?.name || 'Guardado',
+          status: 'Guardado',
           rel:    p['Relevancia']?.select?.name   || '',
           cat:    p['Categoría']?.select?.name    || '',
           area:   p['Área']?.select?.name         || '',
@@ -95,7 +95,7 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const {
       action, postId, title, newsletter, link, date,
-      rel, cat, area, notes, summary, ideas, notionPageId, status,
+      rel, cat, area, notes, summary, ideas, notionPageId,
     } = req.body || {};
 
     // REMOVE: archivar cuando pasa a Leido/Descartado
@@ -208,7 +208,7 @@ export default async function handler(req, res) {
     if (rel)                        props['Relevancia'] = { select: { name: rel } };
     if (cat && cat !== 'Sin categoria') props['Categoría'] = { select: { name: cat } };
     if (area)                       props['Área']      = { select: { name: area } };
-    props['Estado'] = { select: { name: status || 'Guardado' } };
+    props['Estado'] = { select: { name: 'Guardado' } };
 
     // Contenido enriquecido de la página (solo al crear)
     const blocks = [];

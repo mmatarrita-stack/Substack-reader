@@ -60,8 +60,8 @@ function parseEsDateSafe(s){
 }
 function ip(d,p){const dt=new Date(d);if(p==="cur")return dt.getMonth()===CM&&dt.getFullYear()===CY;if(p==="prev")return dt.getMonth()===PM&&dt.getFullYear()===PY;if(p==="60d")return(Date.now()-dt)/86400000<=60;return true;}
 const RC={Alto:{bg:"#dcfce7",c:"#15803d"},Medio:{bg:"#fef9c3",c:"#a16207"},Bajo:{bg:"#f1f5f9",c:"#64748b"}};
-const SC={Nuevo:{bg:"#dbeafe",c:"#1d4ed8"},Guardado:{bg:"#ede9fe",c:"#6d28d9"},Pospuesto:{bg:"#e7e3f3",c:"#6a5aa8"},Leido:{bg:"#f1f5f9",c:"#64748b"},Descartado:{bg:"#fee2e2",c:"#b91c1c"}};
-const STATES=["Nuevo","Guardado","Pospuesto","Leido","Descartado"];
+const SC={Nuevo:{bg:"#dbeafe",c:"#1d4ed8"},Guardado:{bg:"#ede9fe",c:"#6d28d9"},Leido:{bg:"#f1f5f9",c:"#64748b"},Descartado:{bg:"#fee2e2",c:"#b91c1c"}};
+const STATES=["Nuevo","Guardado","Leido","Descartado"];
 const RELS=["Alto","Medio","Bajo"];
 function PostCard({p,onSta,onNote,onCat,onRel,onArea,customCats,areas,onAddCat}){
   const[noteOpen,setNoteOpen]=useState(false);
@@ -317,132 +317,6 @@ function GuideModal({modal,onClose,onRegen,onNotion,guides,onDiscardPost}){
     </div>
   );
 }
-function MesaCuracion({posts,customCats,onSta,onNote,onCat,onRel,onArea}){
-  const[filEstado,setFilEstado]=useState("all");
-  const[filApplic,setFilApplic]=useState("all");
-  const[filFuente,setFilFuente]=useState("all");
-  const[filRel,setFilRel]=useState("all");
-  const[q,setQ]=useState("");
-  const[sort,setSort]=useState("rel");
-  const[open,setOpen]=useState({});
-  const[noteDraft,setNoteDraft]=useState({});
-
-  function applic(p){
-    if(p.status==="Guardado"||p.status==="Pospuesto")return p.cat==="Business"?"Indirecta":"Directa";
-    return "Conceptual";
-  }
-  const applicMark={Directa:"◆",Indirecta:"◇",Conceptual:"○"};
-  const relRank={Alto:0,Medio:1,Bajo:2};
-  const applicRank={Directa:0,Indirecta:1,Conceptual:2};
-  const MC_STATES=["Nuevo","Guardado","Pospuesto","Descartado"];
-  const allFuentes=[...new Set(posts.map(p=>p.newsletter))];
-  const base=posts.filter(p=>p.status!=="Leido");
-
-  const visible=base
-    .filter(p=>(filEstado==="all"||p.status===filEstado))
-    .filter(p=>(filApplic==="all"||applic(p)===filApplic))
-    .filter(p=>(filFuente==="all"||p.newsletter===filFuente))
-    .filter(p=>(filRel==="all"||p.rel===filRel))
-    .filter(p=>(!q.trim()||norm(p.title+" "+p.newsletter+" "+(p.summary||"")).includes(norm(q))))
-    .sort((a,b)=>{
-      if(sort==="fecha")return new Date(b.rawDate)-new Date(a.rawDate);
-      if(sort==="applic")return applicRank[applic(a)]-applicRank[applic(b)];
-      return (relRank[a.rel]??1)-(relRank[b.rel]??1);
-    });
-
-  const sideBtn=(active)=>({width:"100%",display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 6px",borderRadius:6,border:"none",background:active?"#ede9fe":"transparent",color:active?"#6d28d9":"#334155",fontWeight:active?700:400,cursor:"pointer",marginBottom:2});
-  const countOf=(pred)=>base.filter(pred).length;
-
-  return(
-    <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
-      <aside style={{width:190,flexShrink:0,display:"flex",flexDirection:"column",gap:10}}>
-        <div>
-          <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:4}}>ESTADO</div>
-          <button onClick={()=>setFilEstado("all")} style={sideBtn(filEstado==="all")}><span>Todos</span><span>{base.length}</span></button>
-          {MC_STATES.map(s=>(
-            <button key={s} onClick={()=>setFilEstado(s)} style={sideBtn(filEstado===s)}><span>{s}</span><span>{countOf(p=>p.status===s)}</span></button>
-          ))}
-        </div>
-        <div>
-          <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:4}}>APLICABILIDAD</div>
-          {["all","Directa","Indirecta","Conceptual"].map(a=>(
-            <button key={a} onClick={()=>setFilApplic(a)} style={sideBtn(filApplic===a)}><span>{a==="all"?"Todas":(applicMark[a]+" "+a)}</span><span>{a==="all"?base.length:countOf(p=>applic(p)===a)}</span></button>
-          ))}
-        </div>
-        <div>
-          <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:.5,marginBottom:4}}>FUENTES</div>
-          <button onClick={()=>setFilFuente("all")} style={sideBtn(filFuente==="all")}><span>Todas</span><span>{base.length}</span></button>
-          {allFuentes.map(f=>(
-            <button key={f} onClick={()=>setFilFuente(f)} style={sideBtn(filFuente===f)}><span>{f}</span><span>{countOf(p=>p.newsletter===f)}</span></button>
-          ))}
-        </div>
-      </aside>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar hallazgos..." style={{flex:1,minWidth:180,fontSize:11,border:"1px solid #e2e8f0",borderRadius:20,padding:"6px 12px",color:"#334155"}}/>
-          <div style={{display:"flex",gap:4}}>
-            {["all","Alto","Medio","Bajo"].map(r=>(
-              <button key={r} onClick={()=>setFilRel(r)} style={{fontSize:11,fontWeight:600,padding:"4px 10px",borderRadius:20,border:"none",background:filRel===r?"#0f172a":"#e2e8f0",color:filRel===r?"#fff":"#64748b"}}>{r==="all"?"Todas":r}</button>
-            ))}
-          </div>
-          <select value={sort} onChange={e=>setSort(e.target.value)} style={{fontSize:11,border:"1px solid #e2e8f0",borderRadius:6,padding:"5px 6px",color:"#334155"}}>
-            <option value="rel">Relevancia</option>
-            <option value="fecha">Fecha</option>
-            <option value="applic">Aplicabilidad</option>
-          </select>
-          <span style={{fontSize:11,color:"#94a3b8",whiteSpace:"nowrap"}}>{visible.length} de {base.length}</span>
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {visible.map(p=>{
-            const isOpen=!!open[p.id];
-            const ap=applic(p);
-            return(
-              <div key={p.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderLeft:"3px solid "+(SC[p.status]?.c||"#e2e8f0"),borderRadius:10,padding:"12px 14px",opacity:p.status==="Descartado"?.55:1}}>
-                <div style={{display:"flex",justifyContent:"space-between",gap:10,marginBottom:6,flexWrap:"wrap"}}>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-                    <select value={p.rel} onChange={e=>onRel(p.id,e.target.value)} style={{fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:999,border:"none",background:RC[p.rel]?.bg,color:RC[p.rel]?.c}}>
-                      {RELS.map(r=><option key={r} value={r}>{r}</option>)}
-                    </select>
-                    <span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:999,border:"1px solid #e2e8f0",color:"#64748b"}}>{applicMark[ap]} {ap}</span>
-                    <select value={p.cat||"Sin categoria"} onChange={e=>onCat(p.id,e.target.value)} style={{fontSize:10,fontWeight:600,padding:"2px 6px",borderRadius:999,border:"none",background:"#f1f5f9",color:"#334155"}}>
-                      <option value="Sin categoria">Sin categoria</option>
-                      {customCats.map(c=><option key={c} value={c}>{c}</option>)}
-                    </select>
-                    <span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:999,background:SC[p.status]?.bg,color:SC[p.status]?.c}}>{p.status}</span>
-                  </div>
-                  <span style={{fontSize:10,color:"#94a3b8",whiteSpace:"nowrap"}}>{p.date}</span>
-                </div>
-                <a href={p.link} target="_blank" rel="noreferrer" style={{fontWeight:700,fontSize:14,color:"#0f172a",textDecoration:"none",display:"block",marginBottom:2}}>{p.title}</a>
-                <div style={{fontSize:11,color:"#94a3b8",marginBottom:8}}>{p.newsletter}</div>
-                <button onClick={()=>setOpen(o=>({...o,[p.id]:!o[p.id]}))} style={{background:"none",border:"none",color:"#0d9488",fontSize:12,fontWeight:600,padding:0,cursor:"pointer",marginBottom:isOpen?8:0}}>{isOpen?"‹ Ocultar":"› Ver detalle y gestionar"}</button>
-                {isOpen&&(
-                  <div style={{borderTop:"1px solid #f1f5f9",paddingTop:8,display:"flex",flexDirection:"column",gap:8}}>
-                    {p.summary&&<p style={{fontSize:12,color:"#475569",margin:0}}>{p.summary}</p>}
-                    {p.ideas&&p.ideas.length>0&&(
-                      <ul style={{margin:0,paddingLeft:18,fontSize:12,color:"#475569"}}>
-                        {p.ideas.map((idea,i)=><li key={i}>{idea}</li>)}
-                      </ul>
-                    )}
-                    <div>
-                      <textarea value={noteDraft[p.id]!==undefined?noteDraft[p.id]:(p.notes||"")} onChange={e=>setNoteDraft(d=>({...d,[p.id]:e.target.value}))} placeholder="Tu nota sobre este articulo..." style={{width:"100%",minHeight:60,fontSize:12,border:"1px solid #e2e8f0",borderRadius:6,padding:6,color:"#334155",fontFamily:"inherit"}}/>
-                      <button onClick={()=>onNote(p.id,(noteDraft[p.id]!==undefined?noteDraft[p.id]:(p.notes||"")).trim())} style={{fontSize:11,fontWeight:600,padding:"4px 10px",borderRadius:6,border:"1px solid #e2e8f0",background:"transparent",color:"#334155",marginTop:4,cursor:"pointer"}}>Guardar nota</button>
-                    </div>
-                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                      <button onClick={()=>onSta(p.id,p.status==="Guardado"?"Nuevo":"Guardado")} style={{fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:7,border:"1px solid #e2e8f0",cursor:"pointer",background:p.status==="Guardado"?"#6d28d9":"transparent",color:p.status==="Guardado"?"#fff":"#334155"}}>{p.status==="Guardado"?"✓ Aprobado":"Aprobar"}</button>
-                      <button onClick={()=>onSta(p.id,p.status==="Pospuesto"?"Nuevo":"Pospuesto")} style={{fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:7,border:"1px solid #e2e8f0",cursor:"pointer",background:p.status==="Pospuesto"?"#6a5aa8":"transparent",color:p.status==="Pospuesto"?"#fff":"#334155"}}>{p.status==="Pospuesto"?"⏳ Pospuesto":"Posponer"}</button>
-                      <button onClick={()=>onSta(p.id,p.status==="Descartado"?"Nuevo":"Descartado")} style={{fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:7,border:"1px solid #e2e8f0",cursor:"pointer",background:p.status==="Descartado"?"#b91c1c":"transparent",color:p.status==="Descartado"?"#fff":"#334155"}}>{p.status==="Descartado"?"✕ Descartado":"Descartar"}</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {visible.length===0&&<div style={{textAlign:"center",padding:40,color:"#94a3b8",fontSize:13}}>Sin resultados con estos filtros</div>}
-        </div>
-      </div>
-    </div>
-  );
-}
 function App(){
   const isMobile=useIsMobile();
   const[sources,setSources]=useState(()=>getSavedSources());
@@ -499,7 +373,7 @@ function App(){
       const insMatch=anText.match(/## Insights Estratégicos\s*([\s\S]*?)(?=##|$)/);
       const insRaw=insMatch?insMatch[1].trim():"";
       const ideas=insRaw.split("\n").map(l=>l.replace(/^[-•*]\s*/,"").trim()).filter(l=>l.length>20).slice(0,5);
-      const body={notionKey:nk,action:action,postId:post.id,title:post.title,newsletter:post.newsletter,link:post.link,date:post.date,rel:post.rel,cat:post.cat,area:post.area,notes:post.notes,notionPageId:nid,summary,ideas,status:post.status};
+      const body={notionKey:nk,action:action,postId:post.id,title:post.title,newsletter:post.newsletter,link:post.link,date:post.date,rel:post.rel,cat:post.cat,area:post.area,notes:post.notes,notionPageId:nid,summary,ideas};
       const r=await fetch("/api/notion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       const d=await r.json();
       if(d.ok&&d.notionPageId)notionPageIds.current[post.id]=d.notionPageId;
@@ -597,11 +471,11 @@ function App(){
   useEffect(()=>{loadAll();},[]);
   function addSrc(){if(!nurl.trim())return;let u=nurl.trim().split(/[?#]/)[0].replace(/\/$/,"");if(!u.startsWith("http"))u="https://"+u;const m=u.match(/substack\.com\/@([a-zA-Z0-9_-]+)/);const feed=m?"https://"+m[1]+".substack.com/feed":u.endsWith("/feed")?u:u+"/feed";const ns={id:Date.now(),url:feed,name:nurl.trim()};const nx=[...sources,ns];setSources(nx);localStorage.setItem(SRCS_KEY,JSON.stringify(nx));setNurl("");loadAll(nx);saveNotionConfig(nx,customCats,areas);}
   function rmSrc(id){const nx=sources.filter(s=>s.id!==id);setSources(nx);localStorage.setItem(SRCS_KEY,JSON.stringify(nx));setPosts(p=>p.filter(x=>x.srcId!==id));saveNotionConfig(nx,customCats,areas);}
-  function onSta(id,status){const clr=status==="Leido"||status==="Descartado";const ann={status,...(clr?{cat:"Sin categoria",area:""}:{})};saveAnn(id,ann);setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,status,...(clr?{cat:"Sin categoria",area:""}:{})}:x);const post=nx.find(x=>x.id===id);if(status==="Guardado"||status==="Pospuesto")pushToNotion(post,"save");else if(clr)pushToNotion(post,"remove");return nx;});}
-  function onNote(id,notes){saveAnn(id,{notes});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,notes}:x);const post=nx.find(x=>x.id===id);if((post.status==="Guardado"||post.status==="Pospuesto")&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
-  function onCat(id,cat){saveAnn(id,{cat});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,cat}:x);const post=nx.find(x=>x.id===id);if((post.status==="Guardado"||post.status==="Pospuesto")&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
-  function onRel(id,rel){saveAnn(id,{rel});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,rel}:x);const post=nx.find(x=>x.id===id);if((post.status==="Guardado"||post.status==="Pospuesto")&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
-  function onArea(id,area){saveAnn(id,{area});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,area}:x);const post=nx.find(x=>x.id===id);if((post.status==="Guardado"||post.status==="Pospuesto")&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
+  function onSta(id,status){const clr=status==="Leido"||status==="Descartado";const ann={status,...(clr?{cat:"Sin categoria",area:""}:{})};saveAnn(id,ann);setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,status,...(clr?{cat:"Sin categoria",area:""}:{})}:x);const post=nx.find(x=>x.id===id);if(status==="Guardado")pushToNotion(post,"save");else if(clr)pushToNotion(post,"remove");return nx;});}
+  function onNote(id,notes){saveAnn(id,{notes});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,notes}:x);const post=nx.find(x=>x.id===id);if(post.status==="Guardado"&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
+  function onCat(id,cat){saveAnn(id,{cat});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,cat}:x);const post=nx.find(x=>x.id===id);if(post.status==="Guardado"&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
+  function onRel(id,rel){saveAnn(id,{rel});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,rel}:x);const post=nx.find(x=>x.id===id);if(post.status==="Guardado"&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
+  function onArea(id,area){saveAnn(id,{area});setPosts(p=>{const nx=p.map(x=>x.id===id?{...x,area}:x);const post=nx.find(x=>x.id===id);if(post.status==="Guardado"&&notionPageIds.current[id])pushToNotion(post,"update");return nx;});}
   const allNL=[...new Set(posts.map(p=>p.newsletter))];
   const visPosts=posts.filter(p=>
     ip(p.rawDate,period)&&
@@ -729,7 +603,7 @@ function App(){
         <div style={{flex:1}}/>
         {loading&&<span style={{fontSize:11,color:"#94a3b8"}}>{done}/{sources.length}...</span>}
         <div style={{display:"flex",gap:3}}>
-          {[["brief","Brief"],["cards","Tarjetas"],["table","Tabla"],["curacion","Mesa de Curación"]].map(([v,l])=>(
+          {[["brief","Brief"],["cards","Tarjetas"],["table","Tabla"]].map(([v,l])=>(
             <button key={v} onClick={()=>setView(v)} style={{fontSize:11,fontWeight:600,padding:"4px 9px",borderRadius:6,border:"none",background:view===v?"#0f172a":"transparent",color:view===v?"#fff":"#64748b"}}>{l}</button>
           ))}
         </div>
@@ -802,7 +676,6 @@ function App(){
               </div>
             </div>
           )}
-          {view==="curacion"&&<MesaCuracion posts={visPosts} customCats={customCats} onSta={onSta} onNote={onNote} onCat={onCat} onRel={onRel} onArea={onArea}/>}
         </div>
       </div>
     {guideModal&&<GuideModal modal={guideModal} onClose={()=>setGuideModal(null)} onRegen={generateGuide} onNotion={pushGuideToNotion} guides={guides} onDiscardPost={discardFromGuide}/>}
