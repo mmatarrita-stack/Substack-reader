@@ -607,6 +607,7 @@ function App(){
             <button key={v} onClick={()=>setView(v)} style={{fontSize:11,fontWeight:600,padding:"4px 9px",borderRadius:6,border:"none",background:view===v?"#0f172a":"transparent",color:view===v?"#fff":"#64748b"}}>{l}</button>
           ))}
         </div>
+        <a href="/curacion.html" style={{fontSize:11,fontWeight:600,padding:"4px 9px",borderRadius:6,color:"#6366f1",textDecoration:"none"}}>Mesa</a>
         <button onClick={()=>loadAll(sources)} style={{fontSize:13,fontWeight:600,padding:"4px 8px",borderRadius:6,border:"1px solid #e2e8f0",background:"transparent",color:"#334155"}}>&#8635;</button>
       </div>
       {isMobile&&showDrawer&&(
