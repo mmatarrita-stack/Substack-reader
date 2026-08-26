@@ -1,7 +1,7 @@
 // api/notion.js — Sincronización SubstackIntel ↔ Notion
 // Solo artículos con estado "Guardado" se guardan en Notion.
 // Archivar en Notion cuando pasan a Leido/Descartado.
-// Database ID: d634f72e74fe82b48dea01baef2695ae
+// Database ID: e114f72e74fe8212a7d101d3147e8d4b
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const DB_ID = 'b9801b4282cd82b1936b01bda7e41858';
+  const DB_ID = 'e114f72e74fe8212a7d101d3147e8d4b';
   const NOTION_VER = '2022-06-28';
 
   const notionKey = req.method === 'GET'
